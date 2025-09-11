@@ -16,11 +16,15 @@ class BeloteGame {
   @HiveField(3)
   final DateTime createdAt;
 
+  @HiveField(4)
+  final String gameMode;
+
   BeloteGame({
     required this.id,
     required this.players,
     required this.rounds,
     required this.createdAt,
+    required this.gameMode,
   });
 
   Map<String, dynamic> toJson() => {
@@ -38,6 +42,7 @@ class BeloteGame {
           .toList(),
       rounds: (json['rounds'] as List).map((r) => Round.fromJson(r)).toList(),
       createdAt: DateTime.parse(json['createdAt']),
+      gameMode: json['gameMode'],
     );
   }
 }

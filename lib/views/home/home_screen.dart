@@ -3,9 +3,8 @@ import 'dart:io';
 
 import 'package:belote_notes/models/game.dart';
 import 'package:belote_notes/services/storage_service.dart';
-import 'package:belote_notes/views/home/game_screen.dart';
+import 'package:belote_notes/views/game/game_screen.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
@@ -24,7 +23,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return ScaffoldMessenger(
       key: _scaffoldKey,
       child: Scaffold(
-        key: _scaffoldKey,
         appBar: AppBar(
           title: const Text('Belote Notes'),
           actions: [
@@ -78,57 +76,117 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showNewGameDialogue() {
-    final nameController1 = TextEditingController();
-    final nameController2 = TextEditingController();
+    final controllers = List.generate(3, (_) => TextEditingController());
+    String gameMode = '2 players/teams';
+    int playerCount = 2;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('New Game'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController1,
-              decoration: const InputDecoration(labelText: 'Team 1 Players'),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('New Game'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: gameMode,
+                  items: [
+                    DropdownMenuItem(
+                      value: '2 players/teams',
+                      child: const Text('2 Players/Teams (Classic)'),
+                    ),
+                    DropdownMenuItem(
+                      value: '3 players',
+                      child: const Text('3 Players (Cut-throat)'),
+                    ),
+                  ],
+                  onChanged: (value) {
+                    setState(() {
+                      gameMode = value!;
+                      playerCount = value == '2 players/teams' ? 2 : 3;
+                    });
+                  },
+                  decoration: const InputDecoration(
+                    labelText: 'Number of Players',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                ...List.generate(playerCount, (index) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: TextField(
+                      controller: controllers[index],
+                      decoration: InputDecoration(
+                        labelText: gameMode == '2 players/teams'
+                            ? index == 0
+                                  ? 'Team 1 Name'
+                                  : 'Team 2 Name'
+                            : 'Player ${index + 1} Name',
+                        hintText: gameMode == '2 players/teams'
+                            ? index == 0
+                                  ? 'Team 1'
+                                  : 'Team 2'
+                            : 'Player ${index + 1}',
+                      ),
+                    ),
+                  );
+                }),
+              ],
             ),
-            TextField(
-              controller: nameController2,
-              decoration: const InputDecoration(labelText: 'Team 2 Players'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final playerNames = <String>[];
+                for (var i = 0; i < playerCount; i++) {
+                  final name = controllers[i].text.trim();
+                  if (gameMode == '2 players/teams') {
+                    playerNames.add(name.isEmpty ? 'Team ${i + 1}' : name);
+                  } else {
+                    playerNames.add(name.isEmpty ? 'Player ${i + 1}' : name);
+                  }
+                }
+
+                _createNewGame(playerNames, gameMode);
+                Navigator.pop(context);
+              },
+              child: const Text('Create'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              _createNewGame(
-                nameController1.text.isEmpty ? 'We' : nameController1.text,
-                nameController2.text.isEmpty ? 'You' : nameController2.text,
-              );
-            },
-            child: const Text('Create'),
-          ),
-        ],
       ),
     );
   }
 
-  void _createNewGame(String player1, String player2) {
+  void _createNewGame(List<String> playerNames, String gameMode) {
+    final processedPlayerNames = playerNames.map((name) {
+      return name.isEmpty ? 'Player ${playerNames.indexOf(name) + 1}' : name;
+    }).toList();
+
     final newGame = BeloteGame(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      players: [
-        Player(id: '1', name: player1),
-        Player(id: '2', name: player2),
-      ],
+      players: processedPlayerNames.asMap().entries.map((entry) {
+        return Player(id: (entry.key + 1).toString(), name: entry.value);
+      }).toList(),
       rounds: [],
       createdAt: DateTime.now(),
+      gameMode: gameMode,
     );
 
     StorageService.saveGame(newGame);
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Game created successfully!')),
+        );
+      }
+    });
   }
 
   void _loadGame(BeloteGame beloteGame) {
