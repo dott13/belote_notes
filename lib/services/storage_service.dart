@@ -1,5 +1,4 @@
 import 'package:belote_notes/models/game.dart';
-import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 class StorageService {
@@ -14,8 +13,12 @@ class StorageService {
 
   static Box<BeloteGame> get gamesBox => Hive.box<BeloteGame>(_gamesBoxName);
 
-   static Future<void> saveGame(BeloteGame game) async {
-    await gamesBox.put(game.id, game);
+  static Future<void> saveGame(BeloteGame game) async {
+    try {
+      await gamesBox.put(game.id, game);
+    } catch (e) {
+      throw Exception('Failed to save game: $e');
+    }
   }
 
   static BeloteGame? getGame(String id) {
@@ -23,7 +26,11 @@ class StorageService {
   }
 
   static Future<void> deleteGame(String id) async {
-    await gamesBox.delete(id);
+    try {
+      await gamesBox.delete(id);
+    } catch (e) {
+      throw Exception('Failed to delete game: $e');
+    }
   }
 
   static List<BeloteGame> getAllGames() {
