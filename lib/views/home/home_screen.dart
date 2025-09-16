@@ -3,11 +3,13 @@ import 'dart:io';
 
 import 'package:belote_notes/models/game.dart';
 import 'package:belote_notes/services/storage_service.dart';
+import 'package:belote_notes/utils/date_formatter.dart';
 import 'package:belote_notes/views/game/game_screen.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/adapters.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -60,12 +62,21 @@ class _HomeScreenState extends State<HomeScreen> {
             return ListTile(
               title: Text('Game ${index + 1}'),
               subtitle: Text(
-                '${game.players.map((p) => p.name).join(' vs ')}\n'
-                '${game.createdAt.toString().substring(0, 16)}',
+                '${DateFormatter.formatDate(game.createdAt)}\n'
+                '${game.gameMode}: ${game.players.map((p) => p.name).join(', ')}',
               ),
-              trailing: IconButton(
-                onPressed: () => _deleteGame(game.id),
-                icon: const Icon(Icons.delete),
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.blue),
+                    onPressed: () => _editGame(game),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red),
+                    onPressed: () => _deleteGame(game.id),
+                  ),
+                ],
               ),
               onTap: () => _loadGame(game),
             );
@@ -180,19 +191,107 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     StorageService.saveGame(newGame);
-    Future.delayed(const Duration(milliseconds: 300), () {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Game created successfully!')),
-        );
-      }
-    });
+
+    _scaffoldKey.currentState?.showSnackBar(
+      const SnackBar(
+        content: Text('Game created successfully!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
   }
 
   void _loadGame(BeloteGame beloteGame) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => GameScreen(game: beloteGame)),
+    );
+  }
+
+  void _editGame(BeloteGame game) {
+    final controllers = game.players
+        .map((player) => TextEditingController(text: player.name))
+        .toList();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Edit Game'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Game Name: ${game.gameMode}'),
+              Text('Created: ${DateFormatter.formatDate(game.createdAt)}'),
+              const SizedBox(height: 16),
+              ...controllers.asMap().entries.map((entry) {
+                final index = entry.key;
+                final controller = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: TextField(
+                    controller: controller,
+                    decoration: InputDecoration(
+                      labelText: game.gameMode == '2 players/teams'
+                          ? index == 0
+                                ? 'Team 1 Name'
+                                : 'Team 2 Name'
+                          : 'Player ${index + 1} Name',
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              final updatedPlayers = <Player>[];
+              for (var i = 0; i < game.players.length; i++) {
+                final name = controllers[i].text.trim();
+                String defaultName;
+
+                if (game.gameMode == '2 players/teams') {
+                  defaultName = i == 0 ? 'Team 1' : 'Team 2';
+                } else {
+                  defaultName = 'Player ${i + 1}';
+                }
+
+                updatedPlayers.add(
+                  Player(
+                    id: game.players[i].id,
+                    name: name.isEmpty ? defaultName : name,
+                  ),
+                );
+              }
+
+              final updateGame = BeloteGame(
+                id: game.id,
+                players: updatedPlayers,
+                rounds: game.rounds,
+                createdAt: game.createdAt,
+                gameMode: game.gameMode,
+              );
+
+              StorageService.saveGame(updateGame);
+              Navigator.pop(context);
+
+              _scaffoldKey.currentState?.showSnackBar(
+                const SnackBar(
+                  content: Text('Game created successfully!'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -222,9 +321,31 @@ class _HomeScreenState extends State<HomeScreen> {
   //:TODO Import, export functionalities
   Future<void> _exportData() async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        _scaffoldKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Storage permission denied'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      final directory = await getExternalStorageDirectory();
+      if (directory == null) {
+        _scaffoldKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Connot access storage'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+      final downloadsDir = Directory('${directory.path}/Download');
+      if (!await downloadsDir.exists()) {
+        await downloadsDir.create(recursive: true);
+      }
       final file = File(
-        '${directory.path}/belote_backup_${DateTime.now().millisecondsSinceEpoch}.json',
+        '${downloadsDir.path}/belote_backup_${DateTime.now().millisecondsSinceEpoch}.json',
       );
       final games = StorageService.getAllGames();
       final gamesJson = games.map((game) => game.toJson()).toList();
@@ -242,33 +363,100 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _importData() async {
     try {
+      final status = await Permission.storage.request();
+      if (!status.isGranted) {
+        _scaffoldKey.currentState?.showSnackBar(
+          const SnackBar(
+            content: Text('Storage permission denied'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+        return;
+      }
+
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
+        allowMultiple: false,
       );
 
-      if (result != null) {
+      if (result != null && result.files.single.path != null) {
         final file = File(result.files.single.path!);
         final content = await file.readAsString();
+
         final List<dynamic> jsonList = jsonDecode(content);
 
         // Clear existing games
         await StorageService.gamesBox.clear();
 
-        // Import new games
+        int successCount = 0;
+        int errorCount = 0;
+
         for (var json in jsonList) {
-          final game = BeloteGame.fromJson(json);
-          await StorageService.saveGame(game);
+          try {
+            final game = _parseGameFromJson(json);
+            if (game != null) {
+              await StorageService.saveGame(game);
+              successCount++;
+            } else {
+              errorCount++;
+            }
+          } catch (e) {
+            errorCount++;
+            debugPrint('Failed to parse game: $e');
+          }
         }
 
         _scaffoldKey.currentState?.showSnackBar(
-          const SnackBar(content: Text('Import successful')),
+          SnackBar(
+            content: Text(
+              'Import completed: $successCount successful, $errorCount failed',
+            ),
+          ),
+        );
+      } else {
+        // User cancelled file selection
+        _scaffoldKey.currentState?.showSnackBar(
+          const SnackBar(content: Text('Import cancelled')),
         );
       }
     } catch (e) {
       _scaffoldKey.currentState?.showSnackBar(
         SnackBar(content: Text('Import failed: $e')),
       );
+    }
+  }
+
+  BeloteGame? _parseGameFromJson(dynamic json) {
+    try {
+      return BeloteGame(
+        id:
+            json['id']?.toString() ??
+            DateTime.now().millisecondsSinceEpoch.toString(),
+        players:
+            (json['players'] as List?)?.map((playerJson) {
+              return Player(
+                id: playerJson['id']?.toString() ?? '0',
+                name: playerJson['name']?.toString() ?? 'Unknown',
+              );
+            }).toList() ??
+            [],
+        rounds:
+            (json['rounds'] as List?)?.map((roundJson) {
+              return Round(
+                number: roundJson['number'] as int? ?? 0,
+                scores: Map<String, int>.from(roundJson['scores'] ?? {}),
+              );
+            }).toList() ??
+            [],
+        createdAt: DateTime.parse(
+          json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
+        ),
+        gameMode: json['gameMode']?.toString() ?? '2 players/teams',
+      );
+    } catch (e) {
+      debugPrint('Error parsing game: $e');
+      return null;
     }
   }
 }
