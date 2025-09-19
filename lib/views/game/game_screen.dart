@@ -210,7 +210,33 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildRoundList() {
-    //:TODO make the expandable list
+    return Expanded(
+      child: ListView.builder(
+        itemCount: _currentGame.rounds.length,
+        itemBuilder: (context, index) {
+          final round = _currentGame.rounds[index];
+          return Card(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            child: ListTile(
+              title: Text('Round ${round.number}'),
+              subtitle: Text(
+                _currentGame.players
+                    .map((player) {
+                      final score = round.scores[player.id] ?? 0;
+                      return '${player.name}: $score';
+                    })
+                    .join(' | '),
+              ),
+              trailing: IconButton(
+                onPressed: () => _deleteRound(round.number),
+                icon: const Icon(Icons.delete, color: Colors.red, size: 20),
+                tooltip: 'Delete Round',
+              ),
+            ),
+          );
+        },
+      ),
+    );
   }
 
   void _onCalculatorButtonPressed(String button) {
