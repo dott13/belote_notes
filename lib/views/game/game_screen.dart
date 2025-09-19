@@ -14,7 +14,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   late BeloteGame _currentGame;
   final Map<String, int> _currentRoundScores = {};
-  String _currentInputs = '0';
+  String _currentInput = '0';
   String _selectedPlayerId = '';
 
   @override
@@ -123,7 +123,7 @@ class _GameScreenState extends State<GameScreen> {
             onSelected: (selected) {
               setState(() {
                 _selectedPlayerId = player.id;
-                _currentInputs =
+                _currentInput =
                     _currentRoundScores[player.id]?.toString() ?? '0';
               });
             },
@@ -134,18 +134,121 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildCalculator() {
-    //:TODO make calculator
-    return Card();
+    return Card(
+      margin: const EdgeInsets.all(16),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            //Display Current Score
+            Text(
+              '${_getSelectedPlayer()?.name ?? "Player"}: $_currentInput',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(),
+
+            GridView.count(
+              crossAxisCount: 3,
+              shrinkWrap: true,
+              childAspectRatio: 1.5,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+              children: [
+                _buildCalculatorButton('7'),
+                _buildCalculatorButton('8'),
+                _buildCalculatorButton('9'),
+                _buildCalculatorButton('4'),
+                _buildCalculatorButton('5'),
+                _buildCalculatorButton('6'),
+                _buildCalculatorButton('1'),
+                _buildCalculatorButton('2'),
+                _buildCalculatorButton('3'),
+                _buildCalculatorButton('0'),
+                _buildCalculatorButton('00'),
+                _buildCalculatorButton('C'),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                ElevatedButton(
+                  onPressed: _clearAllScores,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                  ),
+                  child: const Text('Clear All'),
+                ),
+                ElevatedButton(
+                  onPressed: _addRound,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                  ),
+                  child: const Text('Save Round'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildCalculatorButton(String label) {
-    //:TODO make the adding button(auto calculating)
-    return ElevatedButton(onPressed: onPressed, child: child);
+    return ElevatedButton(
+      onPressed: () => _onCalculatorButtonPressed(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: label == 'C' ? Colors.red : Colors.blue,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      ),
+    );
   }
 
-  Widget _buildRoundsList() {
+  Widget _buildRoundList() {
     //:TODO make the expandable list
   }
 
+  void _onCalculatorButtonPressed(String button) {
+    setState(() {
+      if (button == 'C') {
+        _currentInput = '0';
+      } else if (button == '00') {
+        if (_currentInput == '0') {
+          _currentInput = '0';
+        } else {
+          _currentInput += '00';
+        }
+      } else {
+        if (_currentInput == '0') {
+          _currentInput = button;
+        } else {
+          _currentInput += button;
+        }
+      }
+    });
+  }
+
+  Player? _getSelectedPlayer() {
+    return _currentGame.players.firstWhere(
+      (player) => player.id == _selectedPlayerId,
+      orElse: () => _currentGame.players.first,
+    );
+  }
+
+  int _calculateTotalScore(String playerId) {
+    return _currentGame.rounds.fold(0, (total, round) {
+      return total + (round.scores[playerId] ?? 0);
+    });
+  }
+
+  //:TODO make the helper functions
+  void _addRound() {}
+  void _clearAllScores() {}
+  void _deleteRound(int roundNumber) {}
   void _saveGame() {}
 }
