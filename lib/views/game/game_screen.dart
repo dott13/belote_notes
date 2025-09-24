@@ -1,4 +1,5 @@
 import 'package:belote_notes/models/game.dart';
+import 'package:belote_notes/services/storage_service.dart';
 import 'package:belote_notes/utils/date_formatter.dart';
 import 'package:flutter/material.dart';
 
@@ -272,9 +273,91 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
-  //:TODO make the helper functions
-  void _addRound() {}
-  void _clearAllScores() {}
-  void _deleteRound(int roundNumber) {}
-  void _saveGame() {}
+  void _addRound() {
+    final hasScores = _currentRoundScores.values.any((score) => score > 0);
+
+    if (!hasScores) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter scores for at least one player'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final roundNumber = _currentGame.rounds.length;
+
+    setState(() {
+      _currentGame.rounds.add(
+        Round(
+          number: roundNumber,
+          scores: Map<String, int>.from(_currentRoundScores),
+        ),
+      );
+
+      for (var player in _currentGame.players) {
+        _currentRoundScores[player.id] = 0;
+        _currentInput = '0';
+      }
+    });
+
+    _saveGame();
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Round saved!'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _clearAllScores() {
+    setState(() {
+      for (var player in _currentGame.players) {
+        _currentRoundScores[player.id] = 0;
+      }
+      _currentInput = '0';
+    });
+  }
+
+  void _deleteRound(int roundNumber) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Round?'),
+        content: const Text('This will remove the round and update scores.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _currentGame.rounds.removeWhere(
+                  (round) => round.number == roundNumber,
+                );
+
+                for (var i = 0; i < _currentGame.rounds.length; i++) {
+                  _currentGame.rounds[i] = Round(
+                    number: i + 1,
+                    scores: _currentGame.rounds[i].scores,
+                  );
+                }
+              });
+
+              _saveGame();
+              Navigator.pop(context);
+            },
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _saveGame() {
+    StorageService.saveGame(_currentGame);
+  }
 }
