@@ -22,13 +22,15 @@ class BeloteGameAdapter extends TypeAdapter<BeloteGame> {
       rounds: (fields[2] as List).cast<Round>(),
       createdAt: fields[3] as DateTime,
       gameMode: fields[4] as String,
+      maxScore: fields[5] as int,
+      winnerId: fields[6] as String?,
     );
   }
 
   @override
   void write(BinaryWriter writer, BeloteGame obj) {
     writer
-      ..writeByte(5)
+      ..writeByte(7)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -38,7 +40,11 @@ class BeloteGameAdapter extends TypeAdapter<BeloteGame> {
       ..writeByte(3)
       ..write(obj.createdAt)
       ..writeByte(4)
-      ..write(obj.gameMode);
+      ..write(obj.gameMode)
+      ..writeByte(5)
+      ..write(obj.maxScore)
+      ..writeByte(6)
+      ..write(obj.winnerId);
   }
 
   @override

@@ -59,11 +59,18 @@ class _HomeScreenState extends State<HomeScreen> {
           itemCount: games.length,
           itemBuilder: (context, index) {
             final game = games[index];
+            final winnerText = game.winnerId != null
+                ? '\nWinner: ${game.players.firstWhere((p) => p.id == game.winnerId).name}'
+                : '';
+
             return ListTile(
-              title: Text('Game ${index + 1}'),
+              title: Text(
+                'Game ${index + 1}${game.winnerId != null ? ' (Finished)' : ''}',
+              ),
               subtitle: Text(
                 '${DateFormatter.formatDate(game.createdAt)}\n'
-                '${game.gameMode}: ${game.players.map((p) => p.name).join(', ')}',
+                '${game.gameMode}: ${game.players.map((p) => p.name).join(', ')}\n'
+                'Max Score: ${game.maxScore}$winnerText',
               ),
               trailing: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -90,6 +97,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final controllers = List.generate(3, (_) => TextEditingController());
     String gameMode = '2 players/teams';
     int playerCount = 2;
+    int maxScore = 101;
 
     showDialog(
       context: context,
@@ -98,53 +106,76 @@ class _HomeScreenState extends State<HomeScreen> {
           title: const Text('New Game'),
           content: SizedBox(
             width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                DropdownButtonFormField<String>(
-                  initialValue: gameMode,
-                  items: [
-                    DropdownMenuItem(
-                      value: '2 players/teams',
-                      child: const Text('2 Players/Teams (Classic)'),
-                    ),
-                    DropdownMenuItem(
-                      value: '3 players',
-                      child: const Text('3 Players (Cut-throat)'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setState(() {
-                      gameMode = value!;
-                      playerCount = value == '2 players/teams' ? 2 : 3;
-                    });
-                  },
-                  decoration: const InputDecoration(
-                    labelText: 'Number of Players',
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ...List.generate(playerCount, (index) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
-                    child: TextField(
-                      controller: controllers[index],
-                      decoration: InputDecoration(
-                        labelText: gameMode == '2 players/teams'
-                            ? index == 0
-                                  ? 'Team 1 Name'
-                                  : 'Team 2 Name'
-                            : 'Player ${index + 1} Name',
-                        hintText: gameMode == '2 players/teams'
-                            ? index == 0
-                                  ? 'Team 1'
-                                  : 'Team 2'
-                            : 'Player ${index + 1}',
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: gameMode,
+                    items: [
+                      DropdownMenuItem(
+                        value: '2 players/teams',
+                        child: const Text('2 Players/Teams (Classic)'),
                       ),
+                      DropdownMenuItem(
+                        value: '3 players',
+                        child: const Text('3 Players (Cut-throat)'),
+                      ),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        gameMode = value!;
+                        playerCount = value == '2 players/teams' ? 2 : 3;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Number of Players',
                     ),
-                  );
-                }),
-              ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<int>(
+                    initialValue: maxScore,
+                    items: [
+                      DropdownMenuItem(value: 51, child: Text('51 points')),
+                      DropdownMenuItem(value: 101, child: Text('101 points')),
+                      DropdownMenuItem(value: 151, child: Text('151 points')),
+                      DropdownMenuItem(value: 201, child: Text('201 points')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        maxScore = value!;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Maximum Score',
+                      helperText: 'First to reach wins',
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  ...List.generate(playerCount, (index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: TextField(
+                        controller: controllers[index],
+                        decoration: InputDecoration(
+                          labelText: gameMode == '2 players/teams'
+                              ? index == 0
+                                    ? 'Team 1 Name'
+                                    : 'Team 2 Name'
+                              : 'Player ${index + 1} Name',
+                          hintText: gameMode == '2 players/teams'
+                              ? index == 0
+                                    ? 'Team 1'
+                                    : 'Team 2'
+                              : 'Player ${index + 1}',
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -164,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   }
                 }
 
-                _createNewGame(playerNames, gameMode);
+                _createNewGame(playerNames, gameMode, maxScore);
                 Navigator.pop(context);
               },
               child: const Text('Create'),
@@ -175,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _createNewGame(List<String> playerNames, String gameMode) {
+  void _createNewGame(List<String> playerNames, String gameMode, int maxScore) {
     final processedPlayerNames = playerNames.map((name) {
       return name.isEmpty ? 'Player ${playerNames.indexOf(name) + 1}' : name;
     }).toList();
@@ -188,6 +219,7 @@ class _HomeScreenState extends State<HomeScreen> {
       rounds: [],
       createdAt: DateTime.now(),
       gameMode: gameMode,
+      maxScore: maxScore,
     );
 
     StorageService.saveGame(newGame);
@@ -211,86 +243,115 @@ class _HomeScreenState extends State<HomeScreen> {
     final controllers = game.players
         .map((player) => TextEditingController(text: player.name))
         .toList();
+    int maxScore = game.maxScore;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Edit Game'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Game Name: ${game.gameMode}'),
-              Text('Created: ${DateFormatter.formatDate(game.createdAt)}'),
-              const SizedBox(height: 16),
-              ...controllers.asMap().entries.map((entry) {
-                final index = entry.key;
-                final controller = entry.value;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: TextField(
-                    controller: controller,
-                    decoration: InputDecoration(
-                      labelText: game.gameMode == '2 players/teams'
-                          ? index == 0
-                                ? 'Team 1 Name'
-                                : 'Team 2 Name'
-                          : 'Player ${index + 1} Name',
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Edit Game'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Game Mode: ${game.gameMode}'),
+                  Text('Created: ${DateFormatter.formatDate(game.createdAt)}'),
+                  const SizedBox(height: 16),
+
+                  DropdownButtonFormField<int>(
+                    initialValue: maxScore,
+                    items: const [
+                      DropdownMenuItem(value: 101, child: Text('101 points')),
+                      DropdownMenuItem(value: 151, child: Text('151 points')),
+                      DropdownMenuItem(value: 201, child: Text('201 points')),
+                      DropdownMenuItem(value: 301, child: Text('301 points')),
+                      DropdownMenuItem(value: 501, child: Text('501 points')),
+                      DropdownMenuItem(value: 1001, child: Text('1001 points')),
+                    ],
+                    onChanged: (value) {
+                      setState(() {
+                        maxScore = value!;
+                      });
+                    },
+                    decoration: const InputDecoration(
+                      labelText: 'Maximum Score',
                     ),
                   ),
-                );
-              }),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () {
-              final updatedPlayers = <Player>[];
-              for (var i = 0; i < game.players.length; i++) {
-                final name = controllers[i].text.trim();
-                String defaultName;
+                  const SizedBox(height: 16),
 
-                if (game.gameMode == '2 players/teams') {
-                  defaultName = i == 0 ? 'Team 1' : 'Team 2';
-                } else {
-                  defaultName = 'Player ${i + 1}';
+                  ...controllers.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final controller = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: TextField(
+                        controller: controller,
+                        decoration: InputDecoration(
+                          labelText: game.gameMode == '2 players/teams'
+                              ? index == 0
+                                    ? 'Team 1 Name'
+                                    : 'Team 2 Name'
+                              : 'Player ${index + 1} Name',
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                final updatedPlayers = <Player>[];
+                for (var i = 0; i < game.players.length; i++) {
+                  final name = controllers[i].text.trim();
+                  String defaultName;
+
+                  if (game.gameMode == '2 players/teams') {
+                    defaultName = i == 0 ? 'Team 1' : 'Team 2';
+                  } else {
+                    defaultName = 'Player ${i + 1}';
+                  }
+
+                  updatedPlayers.add(
+                    Player(
+                      id: game.players[i].id,
+                      name: name.isEmpty ? defaultName : name,
+                    ),
+                  );
                 }
 
-                updatedPlayers.add(
-                  Player(
-                    id: game.players[i].id,
-                    name: name.isEmpty ? defaultName : name,
+                final updateGame = BeloteGame(
+                  id: game.id,
+                  players: updatedPlayers,
+                  rounds: game.rounds,
+                  createdAt: game.createdAt,
+                  gameMode: game.gameMode,
+                  maxScore: maxScore,
+                  winnerId: game.winnerId,
+                );
+
+                StorageService.saveGame(updateGame);
+                Navigator.pop(context);
+
+                _scaffoldKey.currentState?.showSnackBar(
+                  const SnackBar(
+                    content: Text('Game updated successfully!'),
+                    duration: Duration(seconds: 2),
                   ),
                 );
-              }
-
-              final updateGame = BeloteGame(
-                id: game.id,
-                players: updatedPlayers,
-                rounds: game.rounds,
-                createdAt: game.createdAt,
-                gameMode: game.gameMode,
-              );
-
-              StorageService.saveGame(updateGame);
-              Navigator.pop(context);
-
-              _scaffoldKey.currentState?.showSnackBar(
-                const SnackBar(
-                  content: Text('Game created successfully!'),
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            },
-            child: const Text('Save'),
-          ),
-        ],
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -453,6 +514,8 @@ class _HomeScreenState extends State<HomeScreen> {
           json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
         ),
         gameMode: json['gameMode']?.toString() ?? '2 players/teams',
+        maxScore: json['maxScore'] as int? ?? 101,
+        winnerId: json['winnerId'].toString(),
       );
     } catch (e) {
       debugPrint('Error parsing game: $e');

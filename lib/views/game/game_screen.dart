@@ -71,6 +71,9 @@ class _GameScreenState extends State<GameScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_currentGame.winnerId != null) {
+      _buildFinishedGameScreen();
+    }
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -86,6 +89,7 @@ class _GameScreenState extends State<GameScreen> {
       ),
       body: Column(
         children: [
+          _buildMaxScoreIndicator(),
           _buildRoundList(),
           _buildPlayerSelector(),
           _buildCalculator(),
@@ -399,6 +403,194 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  Widget _buildFinishedGameScreen() {
+    final winner = _currentGame.players.firstWhere(
+      (p) => p.id == _currentGame.winnerId,
+    );
+
+    final totalScores = <String, int>{};
+    for (var player in _currentGame.players) {
+      totalScores[player.id] = _calculateTotalScore(player.id);
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Game Finished'),
+        actions: [
+          IconButton(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Reopen Game?'),
+                  content: const Text(
+                    'This will allow you to continue playing',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _currentGame.winnerId = null;
+                        });
+                        _saveGame();
+                        Navigator.pop(context);
+                      },
+                      child: const Text('Reopen'),
+                    ),
+                  ],
+                ),
+              );
+            },
+            icon: const Icon(Icons.edit),
+            tooltip: 'Reopen Game',
+          ),
+        ],
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.emoji_events, size: 100, color: Colors.amber),
+              const SizedBox(height: 24),
+              Text(
+                '${winner.name} Wins!',
+                style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Final Score: ${totalScores[winner.id]}',
+                style: TextStyle(fontSize: 20),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Final Scores:',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              ..._currentGame.players.map((player) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Text(
+                    '${player.name}: ${totalScores[player.id]}',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: player.id == winner.id
+                          ? FontWeight.bold
+                          : FontWeight.normal,
+                      color: player.id == winner.id ? Colors.amber : null,
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMaxScoreIndicator() {
+    final totalScores = <String, int>{};
+    for (var player in _currentGame.players) {
+      totalScores[player.id] = _calculateTotalScore(player.id);
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      color: Colors.blue.withValues(alpha: 0.1),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          Text(
+            'Target: ${_currentGame.maxScore}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          ..._currentGame.players.map((player) {
+            final score = totalScores[player.id] ?? 0;
+            final isLeading = score >= _currentGame.maxScore;
+            return Text(
+              '${player.name}: $score',
+              style: TextStyle(
+                fontWeight: isLeading ? FontWeight.bold : FontWeight.normal,
+                color: isLeading ? Colors.green : null,
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  void _declareWinner(String winnerId) {
+    setState(() {
+      _currentGame.winnerId == winnerId;
+    });
+    _saveGame();
+
+    final winner = _currentGame.players.firstWhere((p) => p.id == winnerId);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('${winner.name} wins the game!'),
+        duration: const Duration(seconds: 3),
+      ),
+    );
+  }
+
+  void _showMultipleWinnersDialogue(
+    List<Player> playersAboveMax,
+    Map<String, int> totalScores,
+  ) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Text('Multiple players passed ${_currentGame.maxScore}'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'The following players have reached the maximum score:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            ...playersAboveMax.map((player) {
+              return Text('${player.name}: ${totalScores[player.id]} points');
+            }),
+            const SizedBox(height: 16),
+            const Text("What would you like to do?"),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+            },
+            child: const Text('Continue Playing'),
+          ),
+          ...playersAboveMax.map((player) {
+            return TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _declareWinner(player.id);
+              },
+              child: Text('${player.name} Wins'),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
   void _handleTotalInput(String button) {
     if (button == 'C') {
       _currentInput = '0';
@@ -475,7 +667,15 @@ class _GameScreenState extends State<GameScreen> {
 
   void _updateCurrentScore() {
     final score = int.tryParse(_currentInput) ?? 0;
-    _currentRoundScores[_selectedPlayerId] = score;
+
+    // Prevent score from exceeding total
+    if (score > _totalRoundPoints) {
+      _currentInput = _totalRoundPoints.toString();
+      _currentRoundScores[_selectedPlayerId] = _totalRoundPoints;
+    } else {
+      _currentRoundScores[_selectedPlayerId] = score;
+    }
+
     _calculateRemainingScores();
   }
 
@@ -487,30 +687,40 @@ class _GameScreenState extends State<GameScreen> {
     final remaining = _totalRoundPoints - assignedTotal;
 
     if (_currentGame.players.length == 2) {
+      // For 2 players, auto-assign remaining to the other player
       final otherPlayer = _currentGame.players.firstWhere(
         (p) => p.id != _selectedPlayerId,
       );
-      // Only auto-assign if the other player doesn't have special scores
-      if (_currentRoundScores[otherPlayer.id]! >= 0) {
-        _currentRoundScores[otherPlayer.id] = remaining;
+
+      final currentPlayerScore = _currentRoundScores[_selectedPlayerId] ?? 0;
+      final otherPlayerScore = _currentRoundScores[otherPlayer.id] ?? 0;
+
+      // Only auto-assign if the other player doesn't have a special score (< 0)
+      // and the current player has a positive score
+      if (otherPlayerScore >= 0 && currentPlayerScore >= 0) {
+        _currentRoundScores[otherPlayer.id] = remaining >= 0 ? remaining : 0;
       }
     } else if (_currentGame.players.length == 3) {
-      // Count players with positive scores
-      final playersWithPositiveScores = _currentRoundScores.entries
+      // For 3 players, if 2 have positive scores, auto-assign remaining to the third
+      final playersWithData = _currentRoundScores.entries
+          .where((entry) => entry.value != 0)
+          .toList();
+
+      // Only auto-calculate if we have exactly 2 players with positive scores
+      final playersWithPositiveScores = playersWithData
           .where((entry) => entry.value > 0)
           .length;
 
       if (playersWithPositiveScores == 2) {
-        // Find the player without a positive score and assign remaining
-        final playerWithoutScore = _currentGame.players.firstWhere(
-          (player) => (_currentRoundScores[player.id] ?? 0) <= 0,
-          orElse: () => _currentGame.players.first,
-        );
+        // Find the player with score = 0
+        final playerWithoutScore = _currentGame.players.firstWhere((player) {
+          final score = _currentRoundScores[player.id] ?? 0;
+          return score == 0;
+        }, orElse: () => _currentGame.players.first);
 
-        // Only auto-assign if they don't have a special score
-        if (_currentRoundScores[playerWithoutScore.id]! == 0) {
-          _currentRoundScores[playerWithoutScore.id] = remaining;
-        }
+        _currentRoundScores[playerWithoutScore.id] = remaining >= 0
+            ? remaining
+            : 0;
       }
     }
   }
@@ -588,6 +798,8 @@ class _GameScreenState extends State<GameScreen> {
 
       // Recalculate bolte counts after adding round
       _calculateBolteCounts();
+
+      _checkForWinner();
       _resetRound();
     });
 
@@ -599,6 +811,30 @@ class _GameScreenState extends State<GameScreen> {
         duration: Duration(seconds: 1),
       ),
     );
+  }
+
+  void _checkForWinner() {
+    final totalScores = <String, int>{};
+    final playersAboveMax = <Player>[];
+
+    for (var player in _currentGame.players) {
+      final score = _calculateTotalScore(player.id);
+      totalScores[player.id] = score;
+
+      if (score >= _currentGame.maxScore) {
+        playersAboveMax.add(player);
+      }
+    }
+
+    if (playersAboveMax.isEmpty) {
+      return;
+    }
+
+    if (playersAboveMax.length == 1) {
+      _declareWinner(playersAboveMax.first.id);
+    }
+
+    _showMultipleWinnersDialogue(playersAboveMax, totalScores);
   }
 
   void _resetRound() {
