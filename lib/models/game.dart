@@ -19,12 +19,20 @@ class BeloteGame {
   @HiveField(4)
   final String gameMode;
 
+  @HiveField(5)
+  final int maxScore;
+
+  @HiveField(6)
+  String? winnerId;
+
   BeloteGame({
     required this.id,
     required this.players,
     required this.rounds,
     required this.createdAt,
     required this.gameMode,
+    this.maxScore = 101,
+    this.winnerId,
   });
 
   Map<String, dynamic> toJson() => {
@@ -32,19 +40,20 @@ class BeloteGame {
     'players': players.map((p) => p.toJson()).toList(),
     'rounds': rounds.map((r) => r.toJson()).toList(),
     'createdAt': createdAt.toIso8601String(),
+    'gameMode': gameMode,
+    'maxScore': maxScore,
+    'winnerId': winnerId,
   };
 
-  factory BeloteGame.fromJson(Map<String, dynamic> json) {
-    return BeloteGame(
-      id: json['id'],
-      players: (json['players'] as List)
-          .map((p) => Player.fromJson(p))
-          .toList(),
-      rounds: (json['rounds'] as List).map((r) => Round.fromJson(r)).toList(),
-      createdAt: DateTime.parse(json['createdAt']),
-      gameMode: json['gameMode'],
-    );
-  }
+  factory BeloteGame.fromJson(Map<String, dynamic> json) => BeloteGame(
+    id: json['id'] as String,
+    players: (json['players'] as List).map((p) => Player.fromJson(p)).toList(),
+    rounds: (json['rounds'] as List).map((r) => Round.fromJson(r)).toList(),
+    createdAt: DateTime.parse(json['createdAt'] as String),
+    gameMode: json['gameMode'] as String,
+    maxScore: json['maxScore'] as int? ?? 101,
+    winnerId: json['winnerId'] as String?,
+  );
 }
 
 @HiveType(typeId: 1)
