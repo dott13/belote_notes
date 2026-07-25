@@ -1,0 +1,33 @@
+name: Auto Version Bump
+
+# Bumps the patch version (e.g. 0.0.1 -> 0.0.2) on every push to main.
+# Commits made by this workflow (and the release workflows) include
+# "[skip ci]", which GitHub uses to skip triggering workflows for that push -
+# this is what stops the bump from looping on itself.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Bump patch version
+        id: bump
+        run: .github/scripts/bump_version.sh patch
+
+      - name: Commit version bump
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add pubspec.yaml
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.new_version }} [skip ci]"
+          git push

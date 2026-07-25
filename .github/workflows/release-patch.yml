@@ -1,0 +1,13 @@
+name: Release - Bug Fix Version
+
+# Manual: bumps the patch version (e.g. 0.1.0 -> 0.1.1), builds a signed
+# Android release APK, and publishes it as a GitHub Release.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    uses: ./.github/workflows/_build-release-android.yml
+    with:
+      bump_type: patch
+    secrets: inherit

@@ -1,0 +1,13 @@
+name: Release - Minor Version
+
+# Manual: bumps the minor version (e.g. 0.1.3 -> 0.2.0), builds a signed
+# Android release APK, and publishes it as a GitHub Release.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  release:
+    uses: ./.github/workflows/_build-release-android.yml
+    with:
+      bump_type: minor
+    secrets: inherit
