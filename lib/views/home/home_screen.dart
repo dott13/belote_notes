@@ -435,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
         return;
       }
 
-      final result = await FilePicker.platform.pickFiles(
+      final result = await FilePicker.pickFiles(
         type: FileType.custom,
         allowedExtensions: ['json'],
         allowMultiple: false,
