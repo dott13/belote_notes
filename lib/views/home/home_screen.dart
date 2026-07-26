@@ -59,12 +59,8 @@ class _HomeScreenState extends State<HomeScreen> {
           itemCount: games.length,
           itemBuilder: (context, index) {
             final game = games[index];
-            final winnerText = game.winnerId != null
-                ? '\nWinner: ${game.players.firstWhere(
-                  (p) => p.id == game.winnerId,
-                  orElse: () => Player(id: game.winnerId!, name: 'Unknown'),
-                ).name}'
-                : '';
+            final winnerName = _resolveWinnerName(game);
+            final winnerText = winnerName != null ? '\nWinner: $winnerName' : '';
 
             return ListTile(
               title: Text(
@@ -109,6 +105,20 @@ class _HomeScreenState extends State<HomeScreen> {
       }).join(', ');
     }
     return game.players.map((p) => p.name).join(', ');
+  }
+
+  String? _resolveWinnerName(BeloteGame game) {
+    if (game.winnerId == null) return null;
+    if (game.gameMode == GameMode.twoVsTwo) {
+      return game.teams.firstWhere(
+        (t) => t.id == game.winnerId,
+        orElse: () => Team(id: game.winnerId!, name: 'Unknown', playerIds: []),
+      ).name;
+    }
+    return game.players.firstWhere(
+      (p) => p.id == game.winnerId,
+      orElse: () => Player(id: game.winnerId!, name: 'Unknown'),
+    ).name;
   }
 
   void _showNewGameDialogue() {
