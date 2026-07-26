@@ -24,41 +24,46 @@ class _GameScreenState extends State<GameScreen> {
   int _totalRoundPoints = 0;
   bool _isSettingTotal = true;
 
+  List<({String id, String name})> get _scoringEntities =>
+      _currentGame.gameMode == GameMode.twoVsTwo
+          ? _currentGame.teams.map((t) => (id: t.id, name: t.name)).toList()
+          : _currentGame.players.map((p) => (id: p.id, name: p.name)).toList();
+
   @override
   void initState() {
     super.initState();
     _currentGame = widget.game;
 
     // Initialize scores
-    for (var player in _currentGame.players) {
-      _currentRoundScores[player.id] = 0;
+    for (var entity in _scoringEntities) {
+      _currentRoundScores[entity.id] = 0;
     }
 
     // Calculate bolte counts from game history
     _calculateBolteCounts();
 
-    if (_currentGame.players.isNotEmpty) {
-      _selectedPlayerId = _currentGame.players.first.id;
+    if (_scoringEntities.isNotEmpty) {
+      _selectedPlayerId = _scoringEntities.first.id;
     }
   }
 
   void _calculateBolteCounts() {
     // Reset counts
-    for (var player in _currentGame.players) {
-      _gameBolteCounts[player.id] = 0;
+    for (var entity in _scoringEntities) {
+      _gameBolteCounts[entity.id] = 0;
     }
 
     // Count boltes from all rounds
     for (var round in _currentGame.rounds) {
-      for (var player in _currentGame.players) {
-        final score = round.scores[player.id] ?? 0;
+      for (var entity in _scoringEntities) {
+        final score = round.scores[entity.id] ?? 0;
         // Check if this was a bolte (stored as -100, -200, -300)
         if (score == -100) {
-          _gameBolteCounts[player.id] = (_gameBolteCounts[player.id] ?? 0) + 1;
+          _gameBolteCounts[entity.id] = (_gameBolteCounts[entity.id] ?? 0) + 1;
         } else if (score == -200) {
-          _gameBolteCounts[player.id] = (_gameBolteCounts[player.id] ?? 0) + 1;
+          _gameBolteCounts[entity.id] = (_gameBolteCounts[entity.id] ?? 0) + 1;
         } else if (score == -300) {
-          _gameBolteCounts[player.id] = (_gameBolteCounts[player.id] ?? 0) + 1;
+          _gameBolteCounts[entity.id] = (_gameBolteCounts[entity.id] ?? 0) + 1;
         }
       }
     }
@@ -117,7 +122,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildRoundList() {
-    final players = _currentGame.players;
+    final scoringEntities = _scoringEntities;
 
     if (_currentGame.rounds.isEmpty) {
       return const Expanded(
@@ -133,8 +138,8 @@ class _GameScreenState extends State<GameScreen> {
 
     // Compute total scores
     final totalScores = <String, int>{};
-    for (var player in players) {
-      totalScores[player.id] = _calculateTotalScore(player.id);
+    for (var entity in scoringEntities) {
+      totalScores[entity.id] = _calculateTotalScore(entity.id);
     }
 
     return Expanded(
@@ -149,7 +154,7 @@ class _GameScreenState extends State<GameScreen> {
             border: TableBorder.all(color: Colors.grey.shade300),
             columns: [
               const DataColumn(label: Text('R')),
-              ...players.map((p) => DataColumn(label: Text(p.name))),
+              ...scoringEntities.map((e) => DataColumn(label: Text(e.name))),
               const DataColumn(label: Text('T')),
               const DataColumn(label: Text('')),
             ],
@@ -162,8 +167,8 @@ class _GameScreenState extends State<GameScreen> {
                 return DataRow(
                   cells: [
                     DataCell(Text(round.number.toString())),
-                    ...players.map((player) {
-                      final score = round.scores[player.id] ?? 0;
+                    ...scoringEntities.map((entity) {
+                      final score = round.scores[entity.id] ?? 0;
                       String displayScore;
                       if (score == -10) {
                         displayScore = '-10';
@@ -202,11 +207,11 @@ class _GameScreenState extends State<GameScreen> {
                   const DataCell(
                     Text('T', style: TextStyle(fontWeight: FontWeight.bold)),
                   ),
-                  ...players.map((p) {
-                    final playerTotal = totalScores[p.id] ?? 0;
+                  ...scoringEntities.map((e) {
+                    final entityTotal = totalScores[e.id] ?? 0;
                     return DataCell(
                       Text(
-                        playerTotal.toString(),
+                        entityTotal.toString(),
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                     );
@@ -248,17 +253,17 @@ class _GameScreenState extends State<GameScreen> {
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
-            children: _currentGame.players.map((player) {
-              final isSelected = _selectedPlayerId == player.id;
-              final displayScore = _getDisplayScore(player.id);
+            children: _scoringEntities.map((entity) {
+              final isSelected = _selectedPlayerId == entity.id;
+              final displayScore = _getDisplayScore(entity.id);
 
               return ChoiceChip(
-                label: Text('${player.name} ($displayScore)'),
+                label: Text('${entity.name} ($displayScore)'),
                 selected: isSelected,
                 onSelected: (selected) {
                   setState(() {
-                    _selectedPlayerId = player.id;
-                    final score = _currentRoundScores[player.id] ?? 0;
+                    _selectedPlayerId = entity.id;
+                    final score = _currentRoundScores[entity.id] ?? 0;
                     _currentInput = score >= 0 ? score.toString() : '0';
                   });
                 },
@@ -276,7 +281,7 @@ class _GameScreenState extends State<GameScreen> {
       displayText = 'Total Round Points: $_currentInput';
     } else {
       final displayScore = _getDisplayScore(_selectedPlayerId);
-      displayText = '${_getSelectedPlayer()?.name ?? "Player"}: $displayScore';
+      displayText = '${_getSelectedEntity()?.name ?? "Player"}: $displayScore';
     }
 
     return Card(
@@ -405,13 +410,14 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   Widget _buildFinishedGameScreen() {
-    final winner = _currentGame.players.firstWhere(
-      (p) => p.id == _currentGame.winnerId,
+    final entities = _scoringEntities;
+    final winner = entities.firstWhere(
+      (e) => e.id == _currentGame.winnerId,
     );
 
     final totalScores = <String, int>{};
-    for (var player in _currentGame.players) {
-      totalScores[player.id] = _calculateTotalScore(player.id);
+    for (var entity in entities) {
+      totalScores[entity.id] = _calculateTotalScore(entity.id);
     }
 
     return Scaffold(
@@ -477,17 +483,17 @@ class _GameScreenState extends State<GameScreen> {
                 style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 16),
-              ..._currentGame.players.map((player) {
+              ...entities.map((entity) {
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
                   child: Text(
-                    '${player.name}: ${totalScores[player.id]}',
+                    '${entity.name}: ${totalScores[entity.id]}',
                     style: TextStyle(
                       fontSize: 18,
-                      fontWeight: player.id == winner.id
+                      fontWeight: entity.id == winner.id
                           ? FontWeight.bold
                           : FontWeight.normal,
-                      color: player.id == winner.id ? Colors.amber : null,
+                      color: entity.id == winner.id ? Colors.amber : null,
                     ),
                   ),
                 );
@@ -501,8 +507,8 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildMaxScoreIndicator() {
     final totalScores = <String, int>{};
-    for (var player in _currentGame.players) {
-      totalScores[player.id] = _calculateTotalScore(player.id);
+    for (var entity in _scoringEntities) {
+      totalScores[entity.id] = _calculateTotalScore(entity.id);
     }
 
     return Container(
@@ -515,11 +521,11 @@ class _GameScreenState extends State<GameScreen> {
             'Target: ${_currentGame.maxScore}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          ..._currentGame.players.map((player) {
-            final score = totalScores[player.id] ?? 0;
+          ..._scoringEntities.map((entity) {
+            final score = totalScores[entity.id] ?? 0;
             final isLeading = score >= _currentGame.maxScore;
             return Text(
-              '${player.name}: $score',
+              '${entity.name}: $score',
               style: TextStyle(
                 fontWeight: isLeading ? FontWeight.bold : FontWeight.normal,
                 color: isLeading ? Colors.green : null,
@@ -537,7 +543,7 @@ class _GameScreenState extends State<GameScreen> {
     });
     _saveGame();
 
-    final winner = _currentGame.players.firstWhere((p) => p.id == winnerId);
+    final winner = _scoringEntities.firstWhere((e) => e.id == winnerId);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${winner.name} wins the game!'),
@@ -547,7 +553,7 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _showMultipleWinnersDialogue(
-    List<Player> playersAboveMax,
+    List<({String id, String name})> playersAboveMax,
     Map<String, int> totalScores,
   ) {
     showDialog(
@@ -689,8 +695,8 @@ class _GameScreenState extends State<GameScreen> {
     // actually typed - never from a previous auto-fill result - otherwise
     // each keystroke of a multi-digit number feeds a stale auto-filled
     // value back into the sum and corrupts it.
-    final unfilledPlayers = _currentGame.players
-        .where((p) => !_manuallyEnteredPlayerIds.contains(p.id))
+    final unfilledPlayers = _scoringEntities
+        .where((e) => !_manuallyEnteredPlayerIds.contains(e.id))
         .toList();
 
     // Only auto-assign once exactly one player is left unaccounted for.
@@ -725,8 +731,8 @@ class _GameScreenState extends State<GameScreen> {
       _currentInput = '0';
       _manuallyEnteredPlayerIds.clear();
 
-      for (var player in _currentGame.players) {
-        _currentRoundScores[player.id] = 0;
+      for (var entity in _scoringEntities) {
+        _currentRoundScores[entity.id] = 0;
       }
     });
   }
@@ -742,11 +748,13 @@ class _GameScreenState extends State<GameScreen> {
     return totalAssigned == _totalRoundPoints;
   }
 
-  Player? _getSelectedPlayer() {
+  ({String id, String name})? _getSelectedEntity() {
     if (_selectedPlayerId.isEmpty) return null;
-    return _currentGame.players.firstWhere(
-      (player) => player.id == _selectedPlayerId,
-      orElse: () => _currentGame.players.first,
+    final entities = _scoringEntities;
+    if (entities.isEmpty) return null;
+    return entities.firstWhere(
+      (entity) => entity.id == _selectedPlayerId,
+      orElse: () => entities.first,
     );
   }
 
@@ -799,14 +807,14 @@ class _GameScreenState extends State<GameScreen> {
 
   void _checkForWinner() {
     final totalScores = <String, int>{};
-    final playersAboveMax = <Player>[];
+    final playersAboveMax = <({String id, String name})>[];
 
-    for (var player in _currentGame.players) {
-      final score = _calculateTotalScore(player.id);
-      totalScores[player.id] = score;
+    for (var entity in _scoringEntities) {
+      final score = _calculateTotalScore(entity.id);
+      totalScores[entity.id] = score;
 
       if (score >= _currentGame.maxScore) {
-        playersAboveMax.add(player);
+        playersAboveMax.add(entity);
       }
     }
 
@@ -829,8 +837,8 @@ class _GameScreenState extends State<GameScreen> {
       _currentInput = '0';
       _manuallyEnteredPlayerIds.clear();
 
-      for (var player in _currentGame.players) {
-        _currentRoundScores[player.id] = 0;
+      for (var entity in _scoringEntities) {
+        _currentRoundScores[entity.id] = 0;
       }
     });
   }
