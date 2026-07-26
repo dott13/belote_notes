@@ -365,6 +365,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   DropdownButtonFormField<int>(
                     initialValue: maxScore,
                     items: const [
+                      DropdownMenuItem(value: 51, child: Text('51 points')),
                       DropdownMenuItem(value: 101, child: Text('101 points')),
                       DropdownMenuItem(value: 151, child: Text('151 points')),
                       DropdownMenuItem(value: 201, child: Text('201 points')),
