@@ -69,7 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               subtitle: Text(
                 '${DateFormatter.formatDate(game.createdAt)}\n'
-                '${game.gameMode}: ${game.players.map((p) => p.name).join(', ')}\n'
+                '${game.gameMode}: ${_formatGameParticipants(game)}\n'
                 'Max Score: ${game.maxScore}$winnerText',
               ),
               trailing: Row(
@@ -91,6 +91,18 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  String _formatGameParticipants(BeloteGame game) {
+    if (game.gameMode == GameMode.twoVsTwo && game.teams.isNotEmpty) {
+      return game.teams.map((team) {
+        final memberNames = team.playerIds
+            .map((id) => game.players.firstWhere((p) => p.id == id).name)
+            .join(', ');
+        return '${team.name} ($memberNames)';
+      }).join(', ');
+    }
+    return game.players.map((p) => p.name).join(', ');
   }
 
   void _showNewGameDialogue() {
@@ -314,6 +326,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final controllers = game.players
         .map((player) => TextEditingController(text: player.name))
         .toList();
+    final teamNameControllers = game.teams
+        .map((team) => TextEditingController(text: team.name))
+        .toList();
     int maxScore = game.maxScore;
 
     showDialog(
@@ -352,23 +367,62 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  ...controllers.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final controller = entry.value;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: TextField(
-                        controller: controller,
-                        decoration: InputDecoration(
-                          labelText: game.gameMode == '2 players/teams'
-                              ? index == 0
-                                    ? 'Team 1 Name'
-                                    : 'Team 2 Name'
-                              : 'Player ${index + 1} Name',
+                  if (game.gameMode == GameMode.twoVsTwo)
+                    ...List.generate(game.teams.length, (teamIndex) {
+                      final team = game.teams[teamIndex];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            TextField(
+                              controller: teamNameControllers[teamIndex],
+                              decoration: const InputDecoration(
+                                labelText: 'Team Name',
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            ...team.playerIds.asMap().entries.map((entry) {
+                              final memberIndex = entry.key;
+                              final playerId = entry.value;
+                              final controllerIndex = game.players.indexWhere(
+                                (p) => p.id == playerId,
+                              );
+                              return Padding(
+                                padding: const EdgeInsets.only(
+                                  bottom: 8.0,
+                                  left: 16.0,
+                                ),
+                                child: TextField(
+                                  controller: controllers[controllerIndex],
+                                  decoration: InputDecoration(
+                                    labelText: 'Player ${memberIndex + 1} Name',
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    })
+                  else
+                    ...controllers.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final controller = entry.value;
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: TextField(
+                          controller: controller,
+                          decoration: InputDecoration(
+                            labelText: game.gameMode == GameMode.twoPlayers
+                                ? index == 0
+                                      ? 'Team 1 Name'
+                                      : 'Team 2 Name'
+                                : 'Player ${index + 1} Name',
+                          ),
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
@@ -385,7 +439,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   final name = controllers[i].text.trim();
                   String defaultName;
 
-                  if (game.gameMode == '2 players/teams') {
+                  if (game.gameMode == GameMode.twoVsTwo) {
+                    defaultName = game.players[i].name;
+                  } else if (game.gameMode == GameMode.twoPlayers) {
                     defaultName = i == 0 ? 'Team 1' : 'Team 2';
                   } else {
                     defaultName = 'Player ${i + 1}';
@@ -399,6 +455,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 }
 
+                final updatedTeams = game.teams.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final team = entry.value;
+                  final name = teamNameControllers[index].text.trim();
+                  return Team(
+                    id: team.id,
+                    name: name.isEmpty ? team.name : name,
+                    playerIds: team.playerIds,
+                  );
+                }).toList();
+
                 final updateGame = BeloteGame(
                   id: game.id,
                   players: updatedPlayers,
@@ -407,6 +474,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   gameMode: game.gameMode,
                   maxScore: maxScore,
                   winnerId: game.winnerId,
+                  teams: updatedTeams,
                 );
 
                 StorageService.saveGame(updateGame);
@@ -584,9 +652,18 @@ class _HomeScreenState extends State<HomeScreen> {
         createdAt: DateTime.parse(
           json['createdAt']?.toString() ?? DateTime.now().toIso8601String(),
         ),
-        gameMode: json['gameMode']?.toString() ?? '2 players/teams',
+        gameMode: json['gameMode']?.toString() ?? GameMode.twoPlayers,
         maxScore: json['maxScore'] as int? ?? 101,
         winnerId: json['winnerId'].toString(),
+        teams:
+            (json['teams'] as List?)?.map((teamJson) {
+              return Team(
+                id: teamJson['id']?.toString() ?? '0',
+                name: teamJson['name']?.toString() ?? 'Team',
+                playerIds: List<String>.from(teamJson['playerIds'] ?? []),
+              );
+            }).toList() ??
+            [],
       );
     } catch (e) {
       debugPrint('Error parsing game: $e');
