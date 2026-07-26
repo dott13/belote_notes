@@ -8,6 +8,7 @@ class StorageService {
     Hive.registerAdapter(BeloteGameAdapter());
     Hive.registerAdapter(PlayerAdapter());
     Hive.registerAdapter(RoundAdapter());
+    Hive.registerAdapter(TeamAdapter());
     await Hive.openBox<BeloteGame>(_gamesBoxName);
   }
 
