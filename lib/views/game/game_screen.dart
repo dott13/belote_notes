@@ -17,6 +17,8 @@ class _GameScreenState extends State<GameScreen> {
   final Map<String, int> _currentRoundScores = {};
   final Map<String, int> _gameBolteCounts =
       {}; // Track total boltes across entire game
+  final Set<String> _manuallyEnteredPlayerIds =
+      {}; // Players whose score this round was typed, not auto-filled
   String _currentInput = '0';
   String _selectedPlayerId = '';
   int _totalRoundPoints = 0;
@@ -58,7 +60,6 @@ class _GameScreenState extends State<GameScreen> {
         } else if (score == -300) {
           _gameBolteCounts[player.id] = (_gameBolteCounts[player.id] ?? 0) + 1;
         }
-        // -10 after B3 resets the count (it's stored as -10, not -300)
       }
     }
   }
@@ -72,7 +73,7 @@ class _GameScreenState extends State<GameScreen> {
   @override
   Widget build(BuildContext context) {
     if (_currentGame.winnerId != null) {
-      _buildFinishedGameScreen();
+      return _buildFinishedGameScreen();
     }
     return Scaffold(
       appBar: AppBar(
@@ -532,7 +533,7 @@ class _GameScreenState extends State<GameScreen> {
 
   void _declareWinner(String winnerId) {
     setState(() {
-      _currentGame.winnerId == winnerId;
+      _currentGame.winnerId = winnerId;
     });
     _saveGame();
 
@@ -617,28 +618,31 @@ class _GameScreenState extends State<GameScreen> {
 
   void _handlePlayerInput(String button) {
     if (button == 'B') {
-      // Give player a "Bolte" (0 points shown as B1, B2, B3)
-      final currentGameBoltes = _gameBolteCounts[_selectedPlayerId] ?? 0;
+      // Give player a "Bolte". Cycles B1 (-100) -> B2 (-200) -> B3 (-300,
+      // costs 10 real points) -> B1 again, for the rest of the game.
+      final totalBoltes = _gameBolteCounts[_selectedPlayerId] ?? 0;
+      final cyclePosition = totalBoltes % 3;
 
-      if (currentGameBoltes < 2) {
-        // B1 or B2 - store as -100, -200
-        final newBolteCount = currentGameBoltes + 1;
-        _currentRoundScores[_selectedPlayerId] = -100 * newBolteCount;
-        _currentInput = '0';
+      if (cyclePosition == 0) {
+        _currentRoundScores[_selectedPlayerId] = -100; // B1
+      } else if (cyclePosition == 1) {
+        _currentRoundScores[_selectedPlayerId] = -200; // B2
       } else {
-        // B3 - player gets -10 points and bolte count resets
-        _currentRoundScores[_selectedPlayerId] = -10;
-        _currentInput = '0';
+        _currentRoundScores[_selectedPlayerId] = -300; // B3
       }
+      _currentInput = '0';
+      _manuallyEnteredPlayerIds.add(_selectedPlayerId);
       _calculateRemainingScores();
     } else if (button == '-10') {
       // Give player -10 points (for going out with 0 actual game points)
       _currentRoundScores[_selectedPlayerId] = -10;
       _currentInput = '0';
+      _manuallyEnteredPlayerIds.add(_selectedPlayerId);
       _calculateRemainingScores();
     } else if (button == 'C') {
       _currentInput = '0';
       _currentRoundScores[_selectedPlayerId] = 0;
+      _manuallyEnteredPlayerIds.remove(_selectedPlayerId);
       _calculateRemainingScores();
     } else if (button == 'Del') {
       if (_currentInput.length > 1) {
@@ -676,53 +680,31 @@ class _GameScreenState extends State<GameScreen> {
       _currentRoundScores[_selectedPlayerId] = score;
     }
 
+    _manuallyEnteredPlayerIds.add(_selectedPlayerId);
     _calculateRemainingScores();
   }
 
   void _calculateRemainingScores() {
-    // Calculate total assigned (only positive scores count toward the total)
-    final assignedTotal = _currentRoundScores.values
+    // The auto-fill target must be derived only from scores the user
+    // actually typed - never from a previous auto-fill result - otherwise
+    // each keystroke of a multi-digit number feeds a stale auto-filled
+    // value back into the sum and corrupts it.
+    final unfilledPlayers = _currentGame.players
+        .where((p) => !_manuallyEnteredPlayerIds.contains(p.id))
+        .toList();
+
+    // Only auto-assign once exactly one player is left unaccounted for.
+    if (unfilledPlayers.length != 1) return;
+
+    final enteredTotal = _manuallyEnteredPlayerIds
+        .map((id) => _currentRoundScores[id] ?? 0)
         .where((score) => score > 0)
         .fold(0, (sum, score) => sum + score);
-    final remaining = _totalRoundPoints - assignedTotal;
 
-    if (_currentGame.players.length == 2) {
-      // For 2 players, auto-assign remaining to the other player
-      final otherPlayer = _currentGame.players.firstWhere(
-        (p) => p.id != _selectedPlayerId,
-      );
-
-      final currentPlayerScore = _currentRoundScores[_selectedPlayerId] ?? 0;
-      final otherPlayerScore = _currentRoundScores[otherPlayer.id] ?? 0;
-
-      // Only auto-assign if the other player doesn't have a special score (< 0)
-      // and the current player has a positive score
-      if (otherPlayerScore >= 0 && currentPlayerScore >= 0) {
-        _currentRoundScores[otherPlayer.id] = remaining >= 0 ? remaining : 0;
-      }
-    } else if (_currentGame.players.length == 3) {
-      // For 3 players, if 2 have positive scores, auto-assign remaining to the third
-      final playersWithData = _currentRoundScores.entries
-          .where((entry) => entry.value != 0)
-          .toList();
-
-      // Only auto-calculate if we have exactly 2 players with positive scores
-      final playersWithPositiveScores = playersWithData
-          .where((entry) => entry.value > 0)
-          .length;
-
-      if (playersWithPositiveScores == 2) {
-        // Find the player with score = 0
-        final playerWithoutScore = _currentGame.players.firstWhere((player) {
-          final score = _currentRoundScores[player.id] ?? 0;
-          return score == 0;
-        }, orElse: () => _currentGame.players.first);
-
-        _currentRoundScores[playerWithoutScore.id] = remaining >= 0
-            ? remaining
-            : 0;
-      }
-    }
+    final remaining = _totalRoundPoints - enteredTotal;
+    _currentRoundScores[unfilledPlayers.first.id] = remaining >= 0
+        ? remaining
+        : 0;
   }
 
   void _setTotalPoints() {
@@ -741,6 +723,7 @@ class _GameScreenState extends State<GameScreen> {
       _totalRoundPoints = total;
       _isSettingTotal = false;
       _currentInput = '0';
+      _manuallyEnteredPlayerIds.clear();
 
       for (var player in _currentGame.players) {
         _currentRoundScores[player.id] = 0;
@@ -770,8 +753,9 @@ class _GameScreenState extends State<GameScreen> {
   int _calculateTotalScore(String playerId) {
     return _currentGame.rounds.fold(0, (total, round) {
       final score = round.scores[playerId] ?? 0;
-      if (score <= -100) return total; // This was a bolte (B1, B2)
-      return total + score; // This includes -10 and positive scores
+      if (score == -300) return total - 10; // B3 - costs 10 real points
+      if (score == -100 || score == -200) return total; // B1/B2 - no cost
+      return total + score; // Regular round points and manual -10 penalty
     });
   }
 
@@ -832,6 +816,7 @@ class _GameScreenState extends State<GameScreen> {
 
     if (playersAboveMax.length == 1) {
       _declareWinner(playersAboveMax.first.id);
+      return;
     }
 
     _showMultipleWinnersDialogue(playersAboveMax, totalScores);
@@ -842,6 +827,7 @@ class _GameScreenState extends State<GameScreen> {
       _isSettingTotal = true;
       _totalRoundPoints = 0;
       _currentInput = '0';
+      _manuallyEnteredPlayerIds.clear();
 
       for (var player in _currentGame.players) {
         _currentRoundScores[player.id] = 0;
