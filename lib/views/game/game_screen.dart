@@ -411,9 +411,12 @@ class _GameScreenState extends State<GameScreen> {
 
   Widget _buildFinishedGameScreen() {
     final entities = _scoringEntities;
-    final winner = entities.firstWhere(
-      (e) => e.id == _currentGame.winnerId,
-    );
+    final winner = entities.isEmpty
+        ? (id: 'unknown', name: 'Unknown')
+        : entities.firstWhere(
+            (e) => e.id == _currentGame.winnerId,
+            orElse: () => (id: 'unknown', name: 'Unknown'),
+          );
 
     final totalScores = <String, int>{};
     for (var entity in entities) {
