@@ -94,9 +94,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showNewGameDialogue() {
-    final controllers = List.generate(3, (_) => TextEditingController());
-    String gameMode = '2 players/teams';
-    int playerCount = 2;
+    final controllers = List.generate(4, (_) => TextEditingController());
+    String gameMode = GameMode.twoVsTwo;
+    int playerCount = 4;
     int maxScore = 101;
 
     showDialog(
@@ -112,25 +112,31 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: gameMode,
-                    items: [
+                    items: const [
                       DropdownMenuItem(
-                        value: '2 players/teams',
-                        child: const Text('2 Players/Teams (Classic)'),
+                        value: GameMode.twoVsTwo,
+                        child: Text('2 v 2 (Teams)'),
                       ),
                       DropdownMenuItem(
-                        value: '3 players',
-                        child: const Text('3 Players (Cut-throat)'),
+                        value: GameMode.twoPlayers,
+                        child: Text('2 Players (Classic)'),
+                      ),
+                      DropdownMenuItem(
+                        value: GameMode.threePlayers,
+                        child: Text('3 Players (Cut-throat)'),
                       ),
                     ],
                     onChanged: (value) {
                       setState(() {
                         gameMode = value!;
-                        playerCount = value == '2 players/teams' ? 2 : 3;
+                        playerCount = switch (gameMode) {
+                          GameMode.twoVsTwo => 4,
+                          GameMode.twoPlayers => 2,
+                          _ => 3,
+                        };
                       });
                     },
-                    decoration: const InputDecoration(
-                      labelText: 'Number of Players',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Game Mode'),
                   ),
                   const SizedBox(height: 16),
 
@@ -154,26 +160,60 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  ...List.generate(playerCount, (index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: TextField(
-                        controller: controllers[index],
-                        decoration: InputDecoration(
-                          labelText: gameMode == '2 players/teams'
-                              ? index == 0
-                                    ? 'Team 1 Name'
-                                    : 'Team 2 Name'
-                              : 'Player ${index + 1} Name',
-                          hintText: gameMode == '2 players/teams'
-                              ? index == 0
-                                    ? 'Team 1'
-                                    : 'Team 2'
-                              : 'Player ${index + 1}',
+                  if (gameMode == GameMode.twoVsTwo)
+                    ...List.generate(2, (teamIndex) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Team ${teamIndex + 1}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            ...List.generate(2, (slot) {
+                              final index = teamIndex * 2 + slot;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: TextField(
+                                  controller: controllers[index],
+                                  decoration: InputDecoration(
+                                    labelText:
+                                        'Team ${teamIndex + 1} - Player ${slot + 1} Name',
+                                    hintText:
+                                        'Team ${teamIndex + 1} - Player ${slot + 1}',
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    })
+                  else
+                    ...List.generate(playerCount, (index) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: TextField(
+                          controller: controllers[index],
+                          decoration: InputDecoration(
+                            labelText: gameMode == GameMode.twoPlayers
+                                ? index == 0
+                                      ? 'Team 1 Name'
+                                      : 'Team 2 Name'
+                                : 'Player ${index + 1} Name',
+                            hintText: gameMode == GameMode.twoPlayers
+                                ? index == 0
+                                      ? 'Team 1'
+                                      : 'Team 2'
+                                : 'Player ${index + 1}',
+                          ),
+                        ),
+                      );
+                    }),
                 ],
               ),
             ),
@@ -186,12 +226,25 @@ class _HomeScreenState extends State<HomeScreen> {
             TextButton(
               onPressed: () {
                 final playerNames = <String>[];
-                for (var i = 0; i < playerCount; i++) {
-                  final name = controllers[i].text.trim();
-                  if (gameMode == '2 players/teams') {
-                    playerNames.add(name.isEmpty ? 'Team ${i + 1}' : name);
-                  } else {
-                    playerNames.add(name.isEmpty ? 'Player ${i + 1}' : name);
+                if (gameMode == GameMode.twoVsTwo) {
+                  for (var i = 0; i < 4; i++) {
+                    final name = controllers[i].text.trim();
+                    final team = i ~/ 2 + 1;
+                    final slot = i % 2 + 1;
+                    playerNames.add(
+                      name.isEmpty ? 'Team $team - Player $slot' : name,
+                    );
+                  }
+                } else {
+                  for (var i = 0; i < playerCount; i++) {
+                    final name = controllers[i].text.trim();
+                    if (gameMode == GameMode.twoPlayers) {
+                      playerNames.add(name.isEmpty ? 'Team ${i + 1}' : name);
+                    } else {
+                      playerNames.add(
+                        name.isEmpty ? 'Player ${i + 1}' : name,
+                      );
+                    }
                   }
                 }
 
@@ -211,15 +264,33 @@ class _HomeScreenState extends State<HomeScreen> {
       return name.isEmpty ? 'Player ${playerNames.indexOf(name) + 1}' : name;
     }).toList();
 
+    final players = processedPlayerNames.asMap().entries.map((entry) {
+      return Player(id: (entry.key + 1).toString(), name: entry.value);
+    }).toList();
+
+    final teams = gameMode == GameMode.twoVsTwo
+        ? [
+            Team(
+              id: '1',
+              name: 'Team 1',
+              playerIds: [players[0].id, players[1].id],
+            ),
+            Team(
+              id: '2',
+              name: 'Team 2',
+              playerIds: [players[2].id, players[3].id],
+            ),
+          ]
+        : <Team>[];
+
     final newGame = BeloteGame(
       id: DateTime.now().millisecondsSinceEpoch.toString(),
-      players: processedPlayerNames.asMap().entries.map((entry) {
-        return Player(id: (entry.key + 1).toString(), name: entry.value);
-      }).toList(),
+      players: players,
       rounds: [],
       createdAt: DateTime.now(),
       gameMode: gameMode,
       maxScore: maxScore,
+      teams: teams,
     );
 
     StorageService.saveGame(newGame);
