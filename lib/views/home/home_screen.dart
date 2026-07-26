@@ -97,7 +97,10 @@ class _HomeScreenState extends State<HomeScreen> {
     if (game.gameMode == GameMode.twoVsTwo && game.teams.isNotEmpty) {
       return game.teams.map((team) {
         final memberNames = team.playerIds
-            .map((id) => game.players.firstWhere((p) => p.id == id).name)
+            .map((id) => game.players.firstWhere(
+              (p) => p.id == id,
+              orElse: () => Player(id: id, name: 'Unknown'),
+            ).name)
             .join(', ');
         return '${team.name} ($memberNames)';
       }).join(', ');
@@ -370,6 +373,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   if (game.gameMode == GameMode.twoVsTwo)
                     ...List.generate(game.teams.length, (teamIndex) {
                       final team = game.teams[teamIndex];
+                      // Filter to only valid player IDs
+                      final validPlayerIds = team.playerIds
+                          .where((playerId) =>
+                              game.players.any((p) => p.id == playerId))
+                          .toList();
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8.0),
                         child: Column(
@@ -382,7 +390,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(height: 8),
-                            ...team.playerIds.asMap().entries.map((entry) {
+                            ...validPlayerIds.asMap().entries.map((entry) {
                               final memberIndex = entry.key;
                               final playerId = entry.value;
                               final controllerIndex = game.players.indexWhere(
@@ -459,10 +467,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   final index = entry.key;
                   final team = entry.value;
                   final name = teamNameControllers[index].text.trim();
+                  // Filter to only valid player IDs
+                  final validPlayerIds = team.playerIds
+                      .where((playerId) =>
+                          updatedPlayers.any((p) => p.id == playerId))
+                      .toList();
                   return Team(
                     id: team.id,
                     name: name.isEmpty ? team.name : name,
-                    playerIds: team.playerIds,
+                    playerIds: validPlayerIds,
                   );
                 }).toList();
 
