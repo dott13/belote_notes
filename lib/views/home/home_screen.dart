@@ -60,7 +60,10 @@ class _HomeScreenState extends State<HomeScreen> {
           itemBuilder: (context, index) {
             final game = games[index];
             final winnerText = game.winnerId != null
-                ? '\nWinner: ${game.players.firstWhere((p) => p.id == game.winnerId).name}'
+                ? '\nWinner: ${game.players.firstWhere(
+                  (p) => p.id == game.winnerId,
+                  orElse: () => Player(id: game.winnerId!, name: 'Unknown'),
+                ).name}'
                 : '';
 
             return ListTile(
@@ -667,7 +670,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         gameMode: json['gameMode']?.toString() ?? GameMode.twoPlayers,
         maxScore: json['maxScore'] as int? ?? 101,
-        winnerId: json['winnerId'].toString(),
+        winnerId: json['winnerId'] as String?,
         teams:
             (json['teams'] as List?)?.map((teamJson) {
               return Team(
