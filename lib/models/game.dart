@@ -39,7 +39,7 @@ class BeloteGame {
   @HiveField(6)
   String? winnerId;
 
-  @HiveField(7)
+  @HiveField(7, defaultValue: <Team>[])
   final List<Team> teams;
 
   BeloteGame({

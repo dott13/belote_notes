@@ -24,7 +24,7 @@ class BeloteGameAdapter extends TypeAdapter<BeloteGame> {
       gameMode: fields[4] as String,
       maxScore: fields[5] as int,
       winnerId: fields[6] as String?,
-      teams: (fields[7] as List).cast<Team>(),
+      teams: fields[7] == null ? [] : (fields[7] as List).cast<Team>(),
     );
   }
 
