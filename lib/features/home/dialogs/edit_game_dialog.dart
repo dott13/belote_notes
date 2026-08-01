@@ -138,6 +138,7 @@ void showEditGameDialog(
                 maxScore: maxScore,
                 winnerId: game.winnerId,
                 teams: updatedTeams,
+                wins: game.wins,
               );
 
               onSave(updateGame);

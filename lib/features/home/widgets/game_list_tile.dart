@@ -25,6 +25,18 @@ class GameListTile extends StatelessWidget {
     return game.players.map((p) => p.name).join(', ');
   }
 
+  static String? formatWins(BeloteGame game) {
+    if (game.wins.values.every((count) => count == 0)) return null;
+
+    final entities = game.gameMode == GameMode.twoVsTwo
+        ? game.teams.map((t) => (id: t.id, name: t.name))
+        : game.players.map((p) => (id: p.id, name: p.name));
+
+    return entities
+        .map((e) => '${e.name}: ${game.wins[e.id] ?? 0}')
+        .join(', ');
+  }
+
   static String? resolveWinnerName(BeloteGame game) {
     if (game.winnerId == null) return null;
     if (game.gameMode == GameMode.twoVsTwo) {
@@ -43,6 +55,8 @@ class GameListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final winnerName = resolveWinnerName(game);
     final winnerText = winnerName != null ? '\nWinner: $winnerName' : '';
+    final winsText = formatWins(game);
+    final winsLine = winsText != null ? '\nSeries: $winsText' : '';
 
     return ListTile(
       title: Text(
@@ -51,7 +65,7 @@ class GameListTile extends StatelessWidget {
       subtitle: Text(
         '${DateFormatter.formatDate(game.createdAt)}\n'
         '${game.gameMode}: ${formatParticipants(game)}\n'
-        'Max Score: ${game.maxScore}$winnerText',
+        'Max Score: ${game.maxScore}$winnerText$winsLine',
       ),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,

@@ -1,14 +1,16 @@
 import 'package:flutter/material.dart';
 
-Future<void> showReopenGameDialog(
+Future<void> showPlayAgainDialog(
   BuildContext context, {
   required VoidCallback onConfirm,
 }) {
   return showDialog<void>(
     context: context,
     builder: (context) => AlertDialog(
-      title: const Text('Reopen Game?'),
-      content: const Text('This will allow you to continue playing'),
+      title: const Text('Play Again?'),
+      content: const Text(
+        'This starts a fresh round with the same teams. The win tally is kept.',
+      ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
@@ -19,7 +21,7 @@ Future<void> showReopenGameDialog(
             onConfirm();
             Navigator.pop(context);
           },
-          child: const Text('Reopen'),
+          child: const Text('Play Again'),
         ),
       ],
     ),

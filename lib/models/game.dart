@@ -42,6 +42,12 @@ class BeloteGame {
   @HiveField(7, defaultValue: <Team>[])
   final List<Team> teams;
 
+  // Wins carried across "Play Again" restarts of this same matchup, keyed by
+  // team id (2v2) or player id (1v1/3p). Mutated in place, so it must never
+  // be a `const {}` default shared across instances.
+  @HiveField(8, defaultValue: <String, int>{})
+  final Map<String, int> wins;
+
   BeloteGame({
     required this.id,
     required this.players,
@@ -51,6 +57,7 @@ class BeloteGame {
     this.maxScore = 101,
     this.winnerId,
     this.teams = const [],
+    required this.wins,
   }) : gameMode = GameMode.normalize(gameMode);
 
   Map<String, dynamic> toJson() => {
@@ -62,6 +69,7 @@ class BeloteGame {
     'maxScore': maxScore,
     'winnerId': winnerId,
     'teams': teams.map((t) => t.toJson()).toList(),
+    'wins': wins,
   };
 
   factory BeloteGame.fromJson(Map<String, dynamic> json) => BeloteGame(
@@ -75,6 +83,7 @@ class BeloteGame {
     teams: (json['teams'] as List? ?? [])
         .map((t) => Team.fromJson(t))
         .toList(),
+    wins: Map<String, int>.from(json['wins'] ?? {}),
   );
 }
 

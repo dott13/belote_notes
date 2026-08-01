@@ -1,18 +1,24 @@
-import 'package:belote_notes/features/game/dialogs/reopen_game_dialog.dart';
+import 'package:belote_notes/features/game/dialogs/play_again_dialog.dart';
+import 'package:belote_notes/features/game/dialogs/undo_win_dialog.dart';
+import 'package:belote_notes/features/game/widgets/win_tally.dart';
 import 'package:flutter/material.dart';
 
 class FinishedGameScreen extends StatelessWidget {
   final List<({String id, String name})> entities;
   final ({String id, String name}) winner;
   final Map<String, int> totalScores;
-  final VoidCallback onReopen;
+  final Map<String, int> wins;
+  final VoidCallback onPlayAgain;
+  final VoidCallback onUndo;
 
   const FinishedGameScreen({
     super.key,
     required this.entities,
     required this.winner,
     required this.totalScores,
-    required this.onReopen,
+    required this.wins,
+    required this.onPlayAgain,
+    required this.onUndo,
   });
 
   @override
@@ -22,10 +28,15 @@ class FinishedGameScreen extends StatelessWidget {
         title: const Text('Game Finished'),
         actions: [
           IconButton(
+            onPressed: () => showUndoWinDialog(context, onConfirm: onUndo),
+            icon: const Icon(Icons.undo),
+            tooltip: 'Undo Win',
+          ),
+          IconButton(
             onPressed: () =>
-                showReopenGameDialog(context, onConfirm: onReopen),
-            icon: const Icon(Icons.edit),
-            tooltip: 'Reopen Game',
+                showPlayAgainDialog(context, onConfirm: onPlayAgain),
+            icon: const Icon(Icons.replay),
+            tooltip: 'Play Again',
           ),
         ],
       ),
@@ -49,6 +60,14 @@ class FinishedGameScreen extends StatelessWidget {
                 'Final Score: ${totalScores[winner.id]}',
                 style: TextStyle(fontSize: 20),
               ),
+              if (wins.values.any((count) => count > 0)) ...[
+                const SizedBox(height: 16),
+                const Text(
+                  'Series:',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                WinTally(scoringEntities: entities, wins: wins),
+              ],
               const SizedBox(height: 32),
               const Text(
                 'Final Scores:',

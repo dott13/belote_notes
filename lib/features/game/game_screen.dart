@@ -5,6 +5,7 @@ import 'package:belote_notes/features/game/widgets/max_score_indicator.dart';
 import 'package:belote_notes/features/game/widgets/player_selector.dart';
 import 'package:belote_notes/features/game/widgets/round_history_table.dart';
 import 'package:belote_notes/features/game/widgets/score_calculator.dart';
+import 'package:belote_notes/features/game/widgets/win_tally.dart';
 import 'package:belote_notes/models/game.dart';
 import 'package:belote_notes/services/storage_service.dart';
 import 'package:belote_notes/utils/date_formatter.dart';
@@ -95,6 +96,11 @@ class _GameScreenState extends State<GameScreen> {
         ),
         actions: [
           IconButton(
+            onPressed: _currentGame.rounds.isEmpty ? null : _undoLastRound,
+            icon: const Icon(Icons.undo),
+            tooltip: 'Undo Last Round',
+          ),
+          IconButton(
             onPressed: _saveGame,
             icon: const Icon(Icons.save),
             tooltip: 'Save Game',
@@ -104,6 +110,7 @@ class _GameScreenState extends State<GameScreen> {
       body: Column(
         children: [
           _buildMaxScoreIndicator(),
+          WinTally(scoringEntities: _scoringEntities, wins: _currentGame.wins),
           _buildRoundList(),
           _buildPlayerSelector(),
           _buildCalculator(),
@@ -217,13 +224,42 @@ class _GameScreenState extends State<GameScreen> {
       entities: entities,
       winner: winner,
       totalScores: totalScores,
-      onReopen: () {
-        setState(() {
-          _currentGame.winnerId = null;
-        });
-        _saveGame();
-      },
+      wins: _currentGame.wins,
+      onPlayAgain: _playAgain,
+      onUndo: _undoWin,
     );
+  }
+
+  void _playAgain() {
+    setState(() {
+      _currentGame.rounds.clear();
+      _currentGame.winnerId = null;
+      _calculateBolteCounts();
+    });
+    _resetRound();
+    _saveGame();
+  }
+
+  void _undoWin() {
+    setState(() {
+      final winnerId = _currentGame.winnerId;
+      if (winnerId == null) return;
+      final currentWins = _currentGame.wins[winnerId] ?? 0;
+      if (currentWins > 0) {
+        _currentGame.wins[winnerId] = currentWins - 1;
+      }
+      _currentGame.winnerId = null;
+    });
+    _saveGame();
+  }
+
+  void _undoLastRound() {
+    if (_currentGame.rounds.isEmpty) return;
+    setState(() {
+      _currentGame.rounds.removeLast();
+      _calculateBolteCounts();
+    });
+    _saveGame();
   }
 
   Widget _buildMaxScoreIndicator() {
@@ -242,6 +278,7 @@ class _GameScreenState extends State<GameScreen> {
   void _declareWinner(String winnerId) {
     setState(() {
       _currentGame.winnerId = winnerId;
+      _currentGame.wins[winnerId] = (_currentGame.wins[winnerId] ?? 0) + 1;
     });
     _saveGame();
 

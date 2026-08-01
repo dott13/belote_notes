@@ -148,6 +148,7 @@ class GameBackupService {
               );
             }).toList() ??
             [],
+        wins: Map<String, int>.from(json['wins'] ?? {}),
       );
     } catch (e) {
       debugPrint('Error parsing game: $e');

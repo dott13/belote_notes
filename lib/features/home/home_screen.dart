@@ -82,6 +82,7 @@ class _HomeScreenState extends State<HomeScreen> {
       gameMode: gameMode,
       maxScore: maxScore,
       teams: teams,
+      wins: {},
     );
 
     StorageService.saveGame(newGame);
