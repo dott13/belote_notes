@@ -1,7 +1,8 @@
 name: Build & Release Android
 
-# Shared by release-minor.yml and release-patch.yml: bumps the version,
-# builds a signed release APK, and publishes it as a GitHub Release.
+# Shared by release-minor.yml and release-patch.yml: bumps the version
+# (unless bump_type is "none"), builds a signed release APK, and publishes
+# it as a GitHub Release.
 on:
   workflow_call:
     inputs:
@@ -38,10 +39,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add pubspec.yaml
-          git commit -m "chore: release v${{ steps.bump.outputs.new_version }} [skip ci]"
+
+          if [ "${{ inputs.bump_type }}" != "none" ]; then
+            git add pubspec.yaml
+            git commit -m "chore: release v${{ steps.bump.outputs.new_version }} [skip ci]"
+            git push origin main
+          fi
+
           git tag "v${{ steps.bump.outputs.new_version }}"
-          git push origin main
           git push origin "v${{ steps.bump.outputs.new_version }}"
 
       - uses: subosito/flutter-action@v2
