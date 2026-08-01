@@ -5,6 +5,9 @@ name: Release - Minor Version
 on:
   workflow_dispatch: {}
 
+permissions:
+  contents: write
+
 jobs:
   release:
     uses: ./.github/workflows/_build-release-android.yml
