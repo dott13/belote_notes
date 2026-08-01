@@ -20,15 +20,7 @@ class GameListTile extends StatelessWidget {
 
   static String formatParticipants(BeloteGame game) {
     if (game.gameMode == GameMode.twoVsTwo && game.teams.isNotEmpty) {
-      return game.teams.map((team) {
-        final memberNames = team.playerIds
-            .map((id) => game.players.firstWhere(
-              (p) => p.id == id,
-              orElse: () => Player(id: id, name: 'Unknown'),
-            ).name)
-            .join(', ');
-        return '${team.name} ($memberNames)';
-      }).join(', ');
+      return game.teams.map((t) => t.name).join(', ');
     }
     return game.players.map((p) => p.name).join(', ');
   }

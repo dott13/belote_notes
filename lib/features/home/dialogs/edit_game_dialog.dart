@@ -52,46 +52,18 @@ void showEditGameDialog(
                 ),
                 const SizedBox(height: 16),
 
+                // Individual player identity doesn't matter yet for 2v2 —
+                // only the team name is editable, until per-player rosters
+                // exist.
                 if (game.gameMode == GameMode.twoVsTwo)
                   ...List.generate(game.teams.length, (teamIndex) {
-                    final team = game.teams[teamIndex];
-                    // Filter to only valid player IDs
-                    final validPlayerIds = team.playerIds
-                        .where((playerId) =>
-                            game.players.any((p) => p.id == playerId))
-                        .toList();
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          TextField(
-                            controller: teamNameControllers[teamIndex],
-                            decoration: const InputDecoration(
-                              labelText: 'Team Name',
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          ...validPlayerIds.asMap().entries.map((entry) {
-                            final memberIndex = entry.key;
-                            final playerId = entry.value;
-                            final controllerIndex = game.players.indexWhere(
-                              (p) => p.id == playerId,
-                            );
-                            return Padding(
-                              padding: const EdgeInsets.only(
-                                bottom: 8.0,
-                                left: 16.0,
-                              ),
-                              child: TextField(
-                                controller: controllers[controllerIndex],
-                                decoration: InputDecoration(
-                                  labelText: 'Player ${memberIndex + 1} Name',
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
+                      child: TextField(
+                        controller: teamNameControllers[teamIndex],
+                        decoration: const InputDecoration(
+                          labelText: 'Team Name',
+                        ),
                       ),
                     );
                   })
@@ -124,26 +96,22 @@ void showEditGameDialog(
           ),
           TextButton(
             onPressed: () {
-              final updatedPlayers = <Player>[];
-              for (var i = 0; i < game.players.length; i++) {
-                final name = controllers[i].text.trim();
-                String defaultName;
-
-                if (game.gameMode == GameMode.twoVsTwo) {
-                  defaultName = game.players[i].name;
-                } else if (game.gameMode == GameMode.twoPlayers) {
-                  defaultName = i == 0 ? 'Team 1' : 'Team 2';
-                } else {
-                  defaultName = 'Player ${i + 1}';
-                }
-
-                updatedPlayers.add(
-                  Player(
-                    id: game.players[i].id,
-                    name: name.isEmpty ? defaultName : name,
-                  ),
-                );
-              }
+              // Individual player names aren't editable for 2v2 anymore
+              // (only the team name is), so those players pass through
+              // unchanged.
+              final updatedPlayers = game.gameMode == GameMode.twoVsTwo
+                  ? game.players
+                  : controllers.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final name = entry.value.text.trim();
+                      final defaultName = game.gameMode == GameMode.twoPlayers
+                          ? (i == 0 ? 'Team 1' : 'Team 2')
+                          : 'Player ${i + 1}';
+                      return Player(
+                        id: game.players[i].id,
+                        name: name.isEmpty ? defaultName : name,
+                      );
+                    }).toList();
 
               final updatedTeams = game.teams.asMap().entries.map((entry) {
                 final index = entry.key;

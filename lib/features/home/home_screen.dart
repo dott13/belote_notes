@@ -46,25 +46,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _createNewGame(List<String> playerNames, String gameMode, int maxScore) {
-    final processedPlayerNames = playerNames.map((name) {
-      return name.isEmpty ? 'Player ${playerNames.indexOf(name) + 1}' : name;
-    }).toList();
-
-    final players = processedPlayerNames.asMap().entries.map((entry) {
-      return Player(id: (entry.key + 1).toString(), name: entry.value);
-    }).toList();
+  void _createNewGame(List<String> names, String gameMode, int maxScore) {
+    // For 2v2, `names` are the two team names; individual player identity
+    // doesn't matter yet, so members are auto-assigned placeholders until
+    // per-player rosters exist.
+    final players = gameMode == GameMode.twoVsTwo
+        ? List.generate(
+            4,
+            (i) => Player(id: (i + 1).toString(), name: 'Player ${i + 1}'),
+          )
+        : names.asMap().entries.map((entry) {
+            return Player(id: (entry.key + 1).toString(), name: entry.value);
+          }).toList();
 
     final teams = gameMode == GameMode.twoVsTwo
         ? [
             Team(
               id: '1',
-              name: 'Team 1',
+              name: names[0],
               playerIds: [players[0].id, players[1].id],
             ),
             Team(
               id: '2',
-              name: 'Team 2',
+              name: names[1],
               playerIds: [players[2].id, players[3].id],
             ),
           ]

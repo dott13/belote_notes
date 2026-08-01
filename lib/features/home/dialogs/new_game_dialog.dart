@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 void showNewGameDialog(
   BuildContext context, {
   required void Function(
-    List<String> playerNames,
+    List<String> names,
     String gameMode,
     int maxScore,
   )
@@ -12,7 +12,7 @@ void showNewGameDialog(
 }) {
   final controllers = List.generate(4, (_) => TextEditingController());
   String gameMode = GameMode.twoVsTwo;
-  int playerCount = 4;
+  int playerCount = 2;
   int maxScore = 101;
 
   showDialog(
@@ -46,7 +46,7 @@ void showNewGameDialog(
                     setState(() {
                       gameMode = value!;
                       playerCount = switch (gameMode) {
-                        GameMode.twoVsTwo => 4,
+                        GameMode.twoVsTwo => 2,
                         GameMode.twoPlayers => 2,
                         _ => 3,
                       };
@@ -76,60 +76,28 @@ void showNewGameDialog(
                 ),
                 const SizedBox(height: 16),
 
-                if (gameMode == GameMode.twoVsTwo)
-                  ...List.generate(2, (teamIndex) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Team ${teamIndex + 1}',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          ...List.generate(2, (slot) {
-                            final index = teamIndex * 2 + slot;
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: TextField(
-                                controller: controllers[index],
-                                decoration: InputDecoration(
-                                  labelText:
-                                      'Team ${teamIndex + 1} - Player ${slot + 1} Name',
-                                  hintText:
-                                      'Team ${teamIndex + 1} - Player ${slot + 1}',
-                                ),
-                              ),
-                            );
-                          }),
-                        ],
+                // Team identity is all that matters for now; individual
+                // players within a 2v2 team can be picked later once
+                // per-player rosters exist.
+                ...List.generate(playerCount, (index) {
+                  final isTeamName =
+                      gameMode == GameMode.twoVsTwo ||
+                      gameMode == GameMode.twoPlayers;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: TextField(
+                      controller: controllers[index],
+                      decoration: InputDecoration(
+                        labelText: isTeamName
+                            ? 'Team ${index + 1} Name'
+                            : 'Player ${index + 1} Name',
+                        hintText: isTeamName
+                            ? 'Team ${index + 1}'
+                            : 'Player ${index + 1}',
                       ),
-                    );
-                  })
-                else
-                  ...List.generate(playerCount, (index) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
-                      child: TextField(
-                        controller: controllers[index],
-                        decoration: InputDecoration(
-                          labelText: gameMode == GameMode.twoPlayers
-                              ? index == 0
-                                    ? 'Team 1 Name'
-                                    : 'Team 2 Name'
-                              : 'Player ${index + 1} Name',
-                          hintText: gameMode == GameMode.twoPlayers
-                              ? index == 0
-                                    ? 'Team 1'
-                                    : 'Team 2'
-                              : 'Player ${index + 1}',
-                        ),
-                      ),
-                    );
-                  }),
+                    ),
+                  );
+                }),
               ],
             ),
           ),
@@ -141,30 +109,19 @@ void showNewGameDialog(
           ),
           TextButton(
             onPressed: () {
-              final playerNames = <String>[];
-              if (gameMode == GameMode.twoVsTwo) {
-                for (var i = 0; i < 4; i++) {
-                  final name = controllers[i].text.trim();
-                  final team = i ~/ 2 + 1;
-                  final slot = i % 2 + 1;
-                  playerNames.add(
-                    name.isEmpty ? 'Team $team - Player $slot' : name,
-                  );
-                }
-              } else {
-                for (var i = 0; i < playerCount; i++) {
-                  final name = controllers[i].text.trim();
-                  if (gameMode == GameMode.twoPlayers) {
-                    playerNames.add(name.isEmpty ? 'Team ${i + 1}' : name);
-                  } else {
-                    playerNames.add(
-                      name.isEmpty ? 'Player ${i + 1}' : name,
-                    );
-                  }
-                }
+              final isTeamName =
+                  gameMode == GameMode.twoVsTwo ||
+                  gameMode == GameMode.twoPlayers;
+              final names = <String>[];
+              for (var i = 0; i < playerCount; i++) {
+                final name = controllers[i].text.trim();
+                final defaultName = isTeamName
+                    ? 'Team ${i + 1}'
+                    : 'Player ${i + 1}';
+                names.add(name.isEmpty ? defaultName : name);
               }
 
-              onCreate(playerNames, gameMode, maxScore);
+              onCreate(names, gameMode, maxScore);
               Navigator.pop(context);
             },
             child: const Text('Create'),
