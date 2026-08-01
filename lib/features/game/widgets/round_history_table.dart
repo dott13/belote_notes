@@ -16,9 +16,7 @@ class RoundHistoryTable extends StatelessWidget {
   });
 
   static String displayScoreFor(int score) {
-    if (score == -10) {
-      return '-10';
-    } else if (score == -100) {
+    if (score == -100) {
       return 'B1';
     } else if (score == -200) {
       return 'B2';

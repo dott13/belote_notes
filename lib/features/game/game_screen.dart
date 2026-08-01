@@ -30,6 +30,7 @@ class _GameScreenState extends State<GameScreen> {
   String _selectedPlayerId = '';
   int _totalRoundPoints = 0;
   bool _isSettingTotal = true;
+  bool _isNegativeEntry = false;
 
   List<({String id, String name})> get _scoringEntities =>
       _currentGame.gameMode == GameMode.twoVsTwo
@@ -121,8 +122,6 @@ class _GameScreenState extends State<GameScreen> {
       return 'B2';
     } else if (score == -300) {
       return 'B3';
-    } else if (score == -10) {
-      return '-10';
     }
 
     return score.toString();
@@ -161,7 +160,17 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       _selectedPlayerId = entityId;
       final score = _currentRoundScores[entityId] ?? 0;
-      _currentInput = score >= 0 ? score.toString() : '0';
+      if (score >= 0) {
+        _currentInput = score.toString();
+        _isNegativeEntry = false;
+      } else if (score == -100 || score == -200 || score == -300) {
+        // Bolte markers aren't keypad-editable; drop back to a clean slate.
+        _currentInput = '0';
+        _isNegativeEntry = false;
+      } else {
+        _currentInput = (-score).toString();
+        _isNegativeEntry = true;
+      }
     });
   }
 
@@ -172,6 +181,7 @@ class _GameScreenState extends State<GameScreen> {
       selectedEntityDisplayScore: _getDisplayScore(_selectedPlayerId),
       selectedEntityName: _getSelectedEntity()?.name ?? 'Player',
       canSaveRound: _canSaveRound(),
+      isNegativeEntry: _isNegativeEntry,
       onButtonPressed: _onCalculatorButtonPressed,
       onSetTotalPoints: _setTotalPoints,
       onResetRound: _resetRound,
@@ -285,14 +295,14 @@ class _GameScreenState extends State<GameScreen> {
       _currentInput = '0';
       _manuallyEnteredPlayerIds.add(_selectedPlayerId);
       _calculateRemainingScores();
-    } else if (button == '-10') {
-      // Give player -10 points (for going out with 0 actual game points)
-      _currentRoundScores[_selectedPlayerId] = -10;
-      _currentInput = '0';
-      _manuallyEnteredPlayerIds.add(_selectedPlayerId);
-      _calculateRemainingScores();
+    } else if (button == '±') {
+      // Toggle whether the number being typed is a penalty (e.g. for going
+      // out with fewer points than the opponents), instead of a fixed -10.
+      _isNegativeEntry = !_isNegativeEntry;
+      _updateCurrentScore();
     } else if (button == 'C') {
       _currentInput = '0';
+      _isNegativeEntry = false;
       _currentRoundScores[_selectedPlayerId] = 0;
       _manuallyEnteredPlayerIds.remove(_selectedPlayerId);
       _calculateRemainingScores();
@@ -322,9 +332,11 @@ class _GameScreenState extends State<GameScreen> {
   }
 
   void _updateCurrentScore() {
-    final score = int.tryParse(_currentInput) ?? 0;
+    final magnitude = int.tryParse(_currentInput) ?? 0;
+    final score = _isNegativeEntry ? -magnitude : magnitude;
 
-    // Prevent score from exceeding total
+    // Prevent score from exceeding total (never triggers for a negative
+    // entry, since it can't be greater than a positive total round points).
     if (score > _totalRoundPoints) {
       _currentInput = _totalRoundPoints.toString();
       _currentRoundScores[_selectedPlayerId] = _totalRoundPoints;
@@ -487,6 +499,7 @@ class _GameScreenState extends State<GameScreen> {
       _isSettingTotal = true;
       _totalRoundPoints = 0;
       _currentInput = '0';
+      _isNegativeEntry = false;
       _manuallyEnteredPlayerIds.clear();
 
       for (var entity in _scoringEntities) {

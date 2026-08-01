@@ -6,6 +6,7 @@ class ScoreCalculator extends StatelessWidget {
   final String selectedEntityDisplayScore;
   final String selectedEntityName;
   final bool canSaveRound;
+  final bool isNegativeEntry;
   final void Function(String button) onButtonPressed;
   final VoidCallback onSetTotalPoints;
   final VoidCallback onResetRound;
@@ -18,6 +19,7 @@ class ScoreCalculator extends StatelessWidget {
     required this.selectedEntityDisplayScore,
     required this.selectedEntityName,
     required this.canSaveRound,
+    required this.isNegativeEntry,
     required this.onButtonPressed,
     required this.onSetTotalPoints,
     required this.onResetRound,
@@ -34,8 +36,8 @@ class ScoreCalculator extends StatelessWidget {
       buttonColor = Colors.red;
     } else if (label == 'B') {
       buttonColor = Colors.purple;
-    } else if (label == '-10') {
-      buttonColor = Colors.orange;
+    } else if (label == '±') {
+      buttonColor = isNegativeEntry ? Colors.deepOrange : Colors.orange;
     }
 
     return ElevatedButton(
@@ -89,7 +91,7 @@ class ScoreCalculator extends StatelessWidget {
                 _buildCalculatorButton('1'),
                 _buildCalculatorButton('2'),
                 _buildCalculatorButton('3'),
-                if (!isSettingTotal) _buildCalculatorButton('-10'),
+                if (!isSettingTotal) _buildCalculatorButton('±'),
                 if (isSettingTotal) _buildCalculatorButton(''),
                 _buildCalculatorButton('0'),
                 _buildCalculatorButton('00'),
