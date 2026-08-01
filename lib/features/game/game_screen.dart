@@ -1,6 +1,7 @@
 import 'package:belote_notes/features/game/dialogs/delete_round_dialog.dart';
 import 'package:belote_notes/features/game/dialogs/multiple_winners_dialog.dart';
 import 'package:belote_notes/features/game/finished_game_screen.dart';
+import 'package:belote_notes/features/game/game_history_screen.dart';
 import 'package:belote_notes/features/game/widgets/max_score_indicator.dart';
 import 'package:belote_notes/features/game/widgets/player_selector.dart';
 import 'package:belote_notes/features/game/widgets/round_history_table.dart';
@@ -96,6 +97,11 @@ class _GameScreenState extends State<GameScreen> {
         ),
         actions: [
           IconButton(
+            onPressed: _openHistory,
+            icon: const Icon(Icons.history),
+            tooltip: 'Match History',
+          ),
+          IconButton(
             onPressed: _currentGame.rounds.isEmpty ? null : _undoLastRound,
             icon: const Icon(Icons.undo),
             tooltip: 'Undo Last Round',
@@ -109,12 +115,24 @@ class _GameScreenState extends State<GameScreen> {
       ),
       body: Column(
         children: [
-          _buildMaxScoreIndicator(),
           WinTally(scoringEntities: _scoringEntities, wins: _currentGame.wins),
+          _buildMaxScoreIndicator(),
           _buildRoundList(),
           _buildPlayerSelector(),
           _buildCalculator(),
         ],
+      ),
+    );
+  }
+
+  void _openHistory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => GameHistoryScreen(
+          entities: _scoringEntities,
+          history: _currentGame.history,
+        ),
       ),
     );
   }
@@ -225,6 +243,7 @@ class _GameScreenState extends State<GameScreen> {
       winner: winner,
       totalScores: totalScores,
       wins: _currentGame.wins,
+      history: _currentGame.history,
       onPlayAgain: _playAgain,
       onUndo: _undoWin,
     );
@@ -247,6 +266,9 @@ class _GameScreenState extends State<GameScreen> {
       final currentWins = _currentGame.wins[winnerId] ?? 0;
       if (currentWins > 0) {
         _currentGame.wins[winnerId] = currentWins - 1;
+      }
+      if (_currentGame.history.isNotEmpty) {
+        _currentGame.history.removeLast();
       }
       _currentGame.winnerId = null;
     });
@@ -279,6 +301,17 @@ class _GameScreenState extends State<GameScreen> {
     setState(() {
       _currentGame.winnerId = winnerId;
       _currentGame.wins[winnerId] = (_currentGame.wins[winnerId] ?? 0) + 1;
+      _currentGame.history.add(
+        MatchHistoryEntry(
+          finishedAt: DateTime.now(),
+          winnerId: winnerId,
+          finalScores: {
+            for (var entity in _scoringEntities)
+              entity.id: _calculateTotalScore(entity.id),
+          },
+          rounds: List<Round>.from(_currentGame.rounds),
+        ),
+      );
     });
     _saveGame();
 

@@ -149,6 +149,30 @@ class GameBackupService {
             }).toList() ??
             [],
         wins: Map<String, int>.from(json['wins'] ?? {}),
+        history:
+            (json['history'] as List?)?.map((historyJson) {
+              return MatchHistoryEntry(
+                finishedAt: DateTime.parse(
+                  historyJson['finishedAt']?.toString() ??
+                      DateTime.now().toIso8601String(),
+                ),
+                winnerId: historyJson['winnerId']?.toString() ?? '0',
+                finalScores: Map<String, int>.from(
+                  historyJson['finalScores'] ?? {},
+                ),
+                rounds:
+                    (historyJson['rounds'] as List?)?.map((roundJson) {
+                      return Round(
+                        number: roundJson['number'] as int? ?? 0,
+                        scores: Map<String, int>.from(
+                          roundJson['scores'] ?? {},
+                        ),
+                      );
+                    }).toList() ??
+                    [],
+              );
+            }).toList() ??
+            [],
       );
     } catch (e) {
       debugPrint('Error parsing game: $e');

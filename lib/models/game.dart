@@ -48,6 +48,11 @@ class BeloteGame {
   @HiveField(8, defaultValue: <String, int>{})
   final Map<String, int> wins;
 
+  // One entry per completed game in this matchup, oldest first. Mutated in
+  // place (see `wins` above for why that rules out a `const []` default).
+  @HiveField(9, defaultValue: <MatchHistoryEntry>[])
+  final List<MatchHistoryEntry> history;
+
   BeloteGame({
     required this.id,
     required this.players,
@@ -58,6 +63,7 @@ class BeloteGame {
     this.winnerId,
     this.teams = const [],
     required this.wins,
+    required this.history,
   }) : gameMode = GameMode.normalize(gameMode);
 
   Map<String, dynamic> toJson() => {
@@ -70,6 +76,7 @@ class BeloteGame {
     'winnerId': winnerId,
     'teams': teams.map((t) => t.toJson()).toList(),
     'wins': wins,
+    'history': history.map((h) => h.toJson()).toList(),
   };
 
   factory BeloteGame.fromJson(Map<String, dynamic> json) => BeloteGame(
@@ -84,7 +91,50 @@ class BeloteGame {
         .map((t) => Team.fromJson(t))
         .toList(),
     wins: Map<String, int>.from(json['wins'] ?? {}),
+    history: (json['history'] as List? ?? [])
+        .map((h) => MatchHistoryEntry.fromJson(h))
+        .toList(),
   );
+}
+
+@HiveType(typeId: 4)
+class MatchHistoryEntry {
+  @HiveField(0)
+  final DateTime finishedAt;
+
+  @HiveField(1)
+  final String winnerId;
+
+  @HiveField(2)
+  final Map<String, int> finalScores;
+
+  @HiveField(3, defaultValue: <Round>[])
+  final List<Round> rounds;
+
+  MatchHistoryEntry({
+    required this.finishedAt,
+    required this.winnerId,
+    required this.finalScores,
+    required this.rounds,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'finishedAt': finishedAt.toIso8601String(),
+    'winnerId': winnerId,
+    'finalScores': finalScores,
+    'rounds': rounds.map((r) => r.toJson()).toList(),
+  };
+
+  factory MatchHistoryEntry.fromJson(Map<String, dynamic> json) {
+    return MatchHistoryEntry(
+      finishedAt: DateTime.parse(json['finishedAt'] as String),
+      winnerId: json['winnerId'] as String,
+      finalScores: Map<String, int>.from(json['finalScores'] ?? {}),
+      rounds: (json['rounds'] as List? ?? [])
+          .map((r) => Round.fromJson(r))
+          .toList(),
+    );
+  }
 }
 
 @HiveType(typeId: 1)

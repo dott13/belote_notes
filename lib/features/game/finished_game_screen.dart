@@ -1,6 +1,8 @@
 import 'package:belote_notes/features/game/dialogs/play_again_dialog.dart';
 import 'package:belote_notes/features/game/dialogs/undo_win_dialog.dart';
+import 'package:belote_notes/features/game/game_history_screen.dart';
 import 'package:belote_notes/features/game/widgets/win_tally.dart';
+import 'package:belote_notes/models/game.dart';
 import 'package:flutter/material.dart';
 
 class FinishedGameScreen extends StatelessWidget {
@@ -8,6 +10,7 @@ class FinishedGameScreen extends StatelessWidget {
   final ({String id, String name}) winner;
   final Map<String, int> totalScores;
   final Map<String, int> wins;
+  final List<MatchHistoryEntry> history;
   final VoidCallback onPlayAgain;
   final VoidCallback onUndo;
 
@@ -17,6 +20,7 @@ class FinishedGameScreen extends StatelessWidget {
     required this.winner,
     required this.totalScores,
     required this.wins,
+    required this.history,
     required this.onPlayAgain,
     required this.onUndo,
   });
@@ -27,6 +31,17 @@ class FinishedGameScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Game Finished'),
         actions: [
+          IconButton(
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    GameHistoryScreen(entities: entities, history: history),
+              ),
+            ),
+            icon: const Icon(Icons.history),
+            tooltip: 'Match History',
+          ),
           IconButton(
             onPressed: () => showUndoWinDialog(context, onConfirm: onUndo),
             icon: const Icon(Icons.undo),

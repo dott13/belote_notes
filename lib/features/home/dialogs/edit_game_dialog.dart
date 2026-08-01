@@ -139,6 +139,7 @@ void showEditGameDialog(
                 winnerId: game.winnerId,
                 teams: updatedTeams,
                 wins: game.wins,
+                history: game.history,
               );
 
               onSave(updateGame);

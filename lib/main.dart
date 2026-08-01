@@ -15,6 +15,7 @@ void main() async {
   Hive.registerAdapter(PlayerAdapter());
   Hive.registerAdapter(RoundAdapter());
   Hive.registerAdapter(TeamAdapter());
+  Hive.registerAdapter(MatchHistoryEntryAdapter());
 
   // Now migration can work
   await MigrationHelper.migrateGamesBox();
